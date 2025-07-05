@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Stethoscope } from "lucide-react";
@@ -15,6 +16,9 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState<"doctor" | "nurse" | "receptionist">("nurse");
+  const [phone, setPhone] = useState("");
+  const [specialization, setSpecialization] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,13 +37,16 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             full_name: fullName,
+            role: role,
+            phone: phone,
+            specialization: role === 'doctor' ? specialization : null
           }
         }
       });
@@ -51,6 +58,22 @@ const Auth = () => {
           description: error.message,
         });
       } else {
+        // Update the profile with additional data after signup
+        if (data.user) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ 
+              role: role,
+              phone: phone,
+              specialization: role === 'doctor' ? specialization : null
+            })
+            .eq('user_id', data.user.id);
+
+          if (profileError) {
+            console.error('Profile update error:', profileError);
+          }
+        }
+
         toast({
           title: "تم إنشاء الحساب بنجاح",
           description: "تم إنشاء حسابك بنجاح. يمكنك الآن تسجيل الدخول.",
@@ -172,6 +195,46 @@ const Auth = () => {
                     placeholder="أدخل اسمك الكامل"
                   />
                 </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="role">الوظيفة</Label>
+                  <Select value={role} onValueChange={(value: "doctor" | "nurse" | "receptionist") => setRole(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر وظيفتك" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="doctor">طبيب</SelectItem>
+                      <SelectItem value="nurse">ممرضة</SelectItem>
+                      <SelectItem value="receptionist">موظف استقبال</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">رقم الهاتف</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    placeholder="أدخل رقم هاتفك"
+                  />
+                </div>
+
+                {role === 'doctor' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="specialization">التخصص</Label>
+                    <Input
+                      id="specialization"
+                      type="text"
+                      value={specialization}
+                      onChange={(e) => setSpecialization(e.target.value)}
+                      placeholder="أدخل تخصصك الطبي"
+                    />
+                  </div>
+                )}
+                
                 <div className="space-y-2">
                   <Label htmlFor="email-signup">البريد الإلكتروني</Label>
                   <Input

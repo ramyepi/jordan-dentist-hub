@@ -69,6 +69,100 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string
+          description: string | null
+          expense_date: string
+          id: string
+          receipt_path: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          receipt_path?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          receipt_path?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installment_plans: {
         Row: {
           amount: number
@@ -273,31 +367,49 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          emergency_contact: string | null
+          employee_id: string | null
           full_name: string
+          hire_date: string | null
           id: string
           is_active: boolean
+          notes: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
+          salary: number | null
+          specialization: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          emergency_contact?: string | null
+          employee_id?: string | null
           full_name: string
+          hire_date?: string | null
           id?: string
           is_active?: boolean
+          notes?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          salary?: number | null
+          specialization?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          emergency_contact?: string | null
+          employee_id?: string | null
           full_name?: string
+          hire_date?: string | null
           id?: string
           is_active?: boolean
+          notes?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          salary?: number | null
+          specialization?: string | null
           updated_at?: string
           user_id?: string
         }
