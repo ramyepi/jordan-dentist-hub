@@ -121,8 +121,8 @@ const FinancialAnalytics = () => {
       const totalExpenses = expensesData?.reduce((sum, expense) => sum + expense.amount, 0) || 0;
 
       // Group by month for charts
-      const monthlyRevenue = groupByMonth(paymentsData || [], 'payment_date', 'paid_amount');
-      const monthlyExpenses = groupByMonth(expensesData || [], 'expense_date', 'amount');
+      const monthlyRevenue = groupRevenueByMonth(paymentsData || [], 'payment_date', 'paid_amount');
+      const monthlyExpenses = groupExpensesByMonth(expensesData || [], 'expense_date', 'amount');
 
       // Group expenses by category
       const expensesByCategory = groupByCategory(expensesData || []);
@@ -152,7 +152,7 @@ const FinancialAnalytics = () => {
     }
   };
 
-  const groupByMonth = (data: any[], dateField: string, amountField: string) => {
+  const groupRevenueByMonth = (data: any[], dateField: string, amountField: string) => {
     const grouped = data.reduce((acc, item) => {
       const date = new Date(item[dateField]);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -164,17 +164,28 @@ const FinancialAnalytics = () => {
       return acc;
     }, {} as Record<string, number>);
 
-    if (amountField === 'paid_amount') {
-      return Object.entries(grouped).map(([month, amount]) => ({
-        month,
-        revenue: amount as number
-      }));
-    } else {
-      return Object.entries(grouped).map(([month, amount]) => ({
-        month,
-        expenses: amount as number
-      }));
-    }
+    return Object.entries(grouped).map(([month, amount]) => ({
+      month,
+      revenue: amount as number
+    }));
+  };
+
+  const groupExpensesByMonth = (data: any[], dateField: string, amountField: string) => {
+    const grouped = data.reduce((acc, item) => {
+      const date = new Date(item[dateField]);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!acc[monthKey]) {
+        acc[monthKey] = 0;
+      }
+      acc[monthKey] += item[amountField];
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(grouped).map(([month, amount]) => ({
+      month,
+      expenses: amount as number
+    }));
   };
 
   const groupByCategory = (expensesData: any[]) => {
