@@ -211,7 +211,7 @@ const Dashboard = () => {
               <CreditCard className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">2,400 ₪</div>
+              <div className="text-2xl font-bold">2,400 د.أ</div>
               <p className="text-xs text-muted-foreground">+15% من المتوسط</p>
             </CardContent>
           </Card>
@@ -241,15 +241,27 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full justify-start gap-3 h-12" variant="outline">
+              <Button 
+                className="w-full justify-start gap-3 h-12" 
+                variant="outline"
+                onClick={() => navigate("/appointments")}
+              >
                 <Calendar className="h-5 w-5" />
                 حجز موعد جديد
               </Button>
-              <Button className="w-full justify-start gap-3 h-12" variant="outline">
+              <Button 
+                className="w-full justify-start gap-3 h-12" 
+                variant="outline"
+                onClick={() => navigate("/patients")}
+              >
                 <Users className="h-5 w-5" />
                 إضافة مريض جديد
               </Button>
-              <Button className="w-full justify-start gap-3 h-12" variant="outline">
+              <Button 
+                className="w-full justify-start gap-3 h-12" 
+                variant="outline"
+                onClick={() => navigate("/payments")}
+              >
                 <CreditCard className="h-5 w-5" />
                 تسجيل دفعة
               </Button>
