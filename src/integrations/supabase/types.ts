@@ -171,6 +171,7 @@ export type Database = {
         Row: {
           amount: number
           category: string
+          category_id: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -183,6 +184,7 @@ export type Database = {
         Insert: {
           amount: number
           category: string
+          category_id?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -195,6 +197,7 @@ export type Database = {
         Update: {
           amount?: number
           category?: string
+          category_id?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -206,7 +209,58 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "clinic_expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clinic_expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expense_categories: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          name_en: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          name_en: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          name_en?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -517,25 +571,37 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          currency: string | null
+          currency_symbol: string | null
+          date_format: string | null
           id: string
           language: string
           time_format: string
+          timezone: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           created_by: string
+          currency?: string | null
+          currency_symbol?: string | null
+          date_format?: string | null
           id?: string
           language?: string
           time_format?: string
+          timezone?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string
+          currency?: string | null
+          currency_symbol?: string | null
+          date_format?: string | null
           id?: string
           language?: string
           time_format?: string
+          timezone?: string | null
           updated_at?: string
         }
         Relationships: [

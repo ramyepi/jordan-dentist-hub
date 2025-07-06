@@ -52,7 +52,7 @@ const ExpenseCategoriesManagement = () => {
   const fetchCategories = async () => {
     try {
       const { data, error } = await supabase
-        .from('expense_categories' as any)
+        .from('expense_categories')
         .select('*')
         .order('name');
 
@@ -100,13 +100,13 @@ const ExpenseCategoriesManagement = () => {
       let error;
       if (editingCategory) {
         const result = await supabase
-          .from('expense_categories' as any)
+          .from('expense_categories')
           .update(categoryData)
           .eq('id', editingCategory.id);
         error = result.error;
       } else {
         const result = await supabase
-          .from('expense_categories' as any)
+          .from('expense_categories')
           .insert([categoryData]);
         error = result.error;
       }
@@ -145,7 +145,7 @@ const ExpenseCategoriesManagement = () => {
   const handleToggleActive = async (category: ExpenseCategory) => {
     try {
       const { error } = await supabase
-        .from('expense_categories' as any)
+        .from('expense_categories')
         .update({ is_active: !category.is_active })
         .eq('id', category.id);
 

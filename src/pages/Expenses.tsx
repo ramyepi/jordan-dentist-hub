@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -106,7 +107,7 @@ const Expenses = () => {
   const fetchCategories = async () => {
     try {
       const { data, error } = await supabase
-        .from("expense_categories" as any)
+        .from("expense_categories")
         .select("*")
         .eq("is_active", true)
         .order("name");
@@ -319,7 +320,6 @@ const Expenses = () => {
                 </div>
               )}
 
-              
               {/* Filters */}
               <Card className="mb-6">
                 <CardHeader>
