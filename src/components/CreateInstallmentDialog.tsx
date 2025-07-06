@@ -44,19 +44,26 @@ const CreateInstallmentDialog = ({
   });
 
   // Fetch appointments for selected patient
-  const { data: appointments = [] } = useQuery({
+  const { data: appointments = [], isLoading: appointmentsLoading } = useQuery({
     queryKey: ['patient-appointments', formData.patient_id],
     queryFn: async () => {
       if (!formData.patient_id) return [];
       
+      console.log('Fetching appointments for patient:', formData.patient_id);
+      
       const { data, error } = await supabase
         .from('appointments')
-        .select('id, scheduled_date, scheduled_time, total_cost')
+        .select('id, scheduled_date, scheduled_time, total_cost, status')
         .eq('patient_id', formData.patient_id)
-        .eq('status', 'completed')
+        .in('status', ['completed', 'confirmed'])
         .order('scheduled_date', { ascending: false });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching appointments:', error);
+        throw error;
+      }
+      
+      console.log('Fetched appointments:', data);
       return data;
     },
     enabled: !!formData.patient_id
@@ -64,6 +71,7 @@ const CreateInstallmentDialog = ({
 
   const handleAppointmentChange = (appointmentId: string) => {
     const appointment = appointments.find(a => a.id === appointmentId);
+    console.log('Selected appointment:', appointment);
     setFormData({
       ...formData,
       appointment_id: appointmentId,
@@ -192,16 +200,23 @@ const CreateInstallmentDialog = ({
               <Select
                 value={formData.appointment_id}
                 onValueChange={handleAppointmentChange}
+                disabled={appointmentsLoading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="اختر الموعد" />
+                  <SelectValue placeholder={appointmentsLoading ? "جاري التحميل..." : "اختر الموعد"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {appointments.map((appointment) => (
-                    <SelectItem key={appointment.id} value={appointment.id}>
-                      {appointment.scheduled_date} - {formatCurrency(appointment.total_cost || 0)}
+                  {appointments.length === 0 ? (
+                    <SelectItem value="no-appointments" disabled>
+                      لا توجد مواعيد متاحة
                     </SelectItem>
-                  ))}
+                  ) : (
+                    appointments.map((appointment) => (
+                      <SelectItem key={appointment.id} value={appointment.id}>
+                        {appointment.scheduled_date} - {appointment.scheduled_time} - {formatCurrency(appointment.total_cost || 0)}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
