@@ -11,6 +11,7 @@ interface SystemSettings {
   date_format: string;
   currency: string;
   currency_symbol: string;
+  calendar_type: string;
 }
 
 interface SystemSettingsContextType {
@@ -27,7 +28,8 @@ const defaultSettings: SystemSettings = {
   timezone: 'Asia/Amman',
   date_format: 'dd/MM/yyyy',
   currency: 'JOD',
-  currency_symbol: 'د.أ'
+  currency_symbol: 'د.أ',
+  calendar_type: 'gregorian'
 };
 
 const SystemSettingsContext = createContext<SystemSettingsContextType | undefined>(undefined);
@@ -64,16 +66,15 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
       if (error) throw error;
 
       if (data) {
-        // Type cast to include the new fields
-        const settingsData = data as any;
         setSettings({
-          id: settingsData.id,
-          language: settingsData.language || defaultSettings.language,
-          time_format: settingsData.time_format || defaultSettings.time_format,
-          timezone: settingsData.timezone || defaultSettings.timezone,
-          date_format: settingsData.date_format || defaultSettings.date_format,
-          currency: settingsData.currency || defaultSettings.currency,
-          currency_symbol: settingsData.currency_symbol || defaultSettings.currency_symbol
+          id: data.id,
+          language: data.language || defaultSettings.language,
+          time_format: data.time_format || defaultSettings.time_format,
+          timezone: data.timezone || defaultSettings.timezone,
+          date_format: data.date_format || defaultSettings.date_format,
+          currency: data.currency || defaultSettings.currency,
+          currency_symbol: data.currency_symbol || defaultSettings.currency_symbol,
+          calendar_type: data.calendar_type || defaultSettings.calendar_type
         });
       }
     } catch (error) {
@@ -102,6 +103,7 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
         date_format: updatedSettings.date_format,
         currency: updatedSettings.currency,
         currency_symbol: updatedSettings.currency_symbol,
+        calendar_type: updatedSettings.calendar_type,
         created_by: profile.id
       };
 
@@ -127,11 +129,6 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
         description: 'تم حفظ الإعدادات بنجاح',
       });
 
-      // إعادة تحميل الصفحة لتطبيق التغييرات
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-
     } catch (error) {
       console.error('Error updating settings:', error);
       toast({
@@ -145,11 +142,15 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
   const formatDateTime = (date: Date, includeTime = true) => {
     const timeZone = settings.timezone;
     
+    // استخدام التقويم الميلادي دائماً مع اللغة الإنجليزية للتواريخ
+    const locale = settings.calendar_type === 'gregorian' ? 'en-GB' : 'ar-SA-u-ca-islamic';
+    
     const dateOptions: Intl.DateTimeFormatOptions = {
       timeZone,
       year: 'numeric',
       month: '2-digit',
-      day: '2-digit'
+      day: '2-digit',
+      calendar: settings.calendar_type === 'gregorian' ? 'gregory' : 'islamic'
     };
 
     const timeOptions: Intl.DateTimeFormatOptions = {
@@ -158,8 +159,6 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
       minute: '2-digit',
       hour12: settings.time_format === '12h'
     };
-
-    const locale = settings.language === 'ar' ? 'ar-SA' : 'en-US';
     
     if (includeTime) {
       return new Intl.DateTimeFormat(locale, { ...dateOptions, ...timeOptions }).format(date);

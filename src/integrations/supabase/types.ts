@@ -569,6 +569,7 @@ export type Database = {
       }
       system_settings: {
         Row: {
+          calendar_type: string
           created_at: string
           created_by: string
           currency: string | null
@@ -581,6 +582,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          calendar_type?: string
           created_at?: string
           created_by: string
           currency?: string | null
@@ -593,6 +595,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          calendar_type?: string
           created_at?: string
           created_by?: string
           currency?: string | null

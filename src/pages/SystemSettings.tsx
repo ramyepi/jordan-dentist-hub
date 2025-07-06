@@ -7,21 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Settings, Globe, Clock, Shield, Save, DollarSign } from "lucide-react";
+import { Settings, Globe, Clock, Shield, Save, DollarSign, Calendar } from "lucide-react";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
-
-interface SystemSetting {
-  id: string;
-  language: string;
-  time_format: string;
-  timezone: string;
-  date_format: string;
-  currency: string;
-  currency_symbol: string;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-}
 
 const SystemSettings = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +23,8 @@ const SystemSettings = () => {
     timezone: "Asia/Amman",
     date_format: "dd/MM/yyyy",
     currency: "JOD",
-    currency_symbol: "د.أ"
+    currency_symbol: "د.أ",
+    calendar_type: "gregorian"
   });
 
   const timezones = [
@@ -74,7 +62,8 @@ const SystemSettings = () => {
         timezone: settings.timezone,
         date_format: settings.date_format,
         currency: settings.currency,
-        currency_symbol: settings.currency_symbol
+        currency_symbol: settings.currency_symbol,
+        calendar_type: settings.calendar_type || "gregorian"
       });
     }
     setIsLoading(false);
@@ -164,7 +153,6 @@ const SystemSettings = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* إعدادات اللغة والوقت */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
@@ -219,6 +207,35 @@ const SystemSettings = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                إعدادات التقويم
+              </CardTitle>
+              <CardDescription>
+                تحديد نوع التقويم المستخدم في النظام
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>نوع التقويم</Label>
+                <Select 
+                  value={formData.calendar_type} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, calendar_type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gregorian">التقويم الميلادي</SelectItem>
+                    <SelectItem value="hijri">التقويم الهجري</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
                 إعدادات الوقت والتاريخ
               </CardTitle>
@@ -264,7 +281,6 @@ const SystemSettings = () => {
                 </div>
               </div>
 
-              {/* معاينة مباشرة */}
               <div className="p-4 bg-blue-50 rounded-lg">
                 <h4 className="font-medium text-blue-900 mb-2">معاينة التنسيق</h4>
                 <div className="space-y-2 text-sm">

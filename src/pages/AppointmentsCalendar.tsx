@@ -1,469 +1,454 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Calendar, Clock, User, Phone, Plus, Edit, CalendarDays } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import { format, addDays, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
-import { ar } from "date-fns/locale";
-import { Calendar as UICalendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
-import EditAppointmentDialog from "@/components/EditAppointmentDialog";
-import NewAppointmentDialog from "@/components/NewAppointmentDialog";
-import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 
-interface AppointmentWithDetails {
-  id: string;
-  scheduled_date: string;
-  scheduled_time: string;
-  status: string;
-  appointment_type: string;
-  duration_minutes: number;
-  notes: string | null;
-  patient_name: string;
-  patient_phone: string;
-  doctor_name: string | null;
-  doctor_id: string | null;
-  total_cost: number | null;
-  patient_id: string;
-}
+import { useState, useEffect } from "react";
+import { Calendar, dateFnsLocalizer } from "react-big-calendar";
+import { format, parse, startOfWeek, getDay, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { ar } from "date-fns/locale";
+import "react-big-calendar/lib/css/react-big-calendar.css";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, Plus, RotateCcw } from "lucide-react";
+import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import NewAppointmentDialog from "@/components/NewAppointmentDialog";
+import EditAppointmentDialog from "@/components/EditAppointmentDialog";
+
+// إعداد المترجم للتواريخ
+const locales = {
+  ar: ar,
+};
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 6 }), // السبت بداية الأسبوع
+  getDay,
+  locales,
+});
+
+// رسائل باللغة العربية
+const messages = {
+  allDay: 'طوال اليوم',
+  previous: 'السابق',
+  next: 'التالي',
+  today: 'اليوم',
+  month: 'شهر',
+  week: 'أسبوع',
+  day: 'يوم',
+  agenda: 'جدول',
+  date: 'التاريخ',
+  time: 'الوقت',
+  event: 'موعد',
+  noEventsInRange: 'لا توجد مواعيد في هذا النطاق',
+  showMore: (total: number) => `+${total} أكثر`,
+};
 
 const AppointmentsCalendar = () => {
-  const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<"day" | "week">("day");
-  const [isLoading, setIsLoading] = useState(true);
-  const [editAppointment, setEditAppointment] = useState<AppointmentWithDetails | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isNewAppointmentDialogOpen, setIsNewAppointmentDialogOpen] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState<'month' | 'week' | 'day'>('month');
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
+  const [showNewAppointmentDialog, setShowNewAppointmentDialog] = useState(false);
+  const [showEditAppointmentDialog, setShowEditAppointmentDialog] = useState(false);
+  const [doctorFilter, setDoctorFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const { formatDateTime, formatCurrency } = useSystemSettings();
+  const { formatDateTime } = useSystemSettings();
 
-  const timeSlots = [
-    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
-    "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
-    "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
-  ];
-
-  useEffect(() => {
-    fetchAppointments();
-  }, [selectedDate, viewMode]);
-
-  const fetchAppointments = async () => {
-    try {
-      setIsLoading(true);
-      let startDate, endDate;
-      
-      if (viewMode === "day") {
-        startDate = endDate = format(selectedDate, "yyyy-MM-dd");
-      } else {
-        const weekStart = startOfWeek(selectedDate, { locale: ar });
-        const weekEnd = endOfWeek(selectedDate, { locale: ar });
-        startDate = format(weekStart, "yyyy-MM-dd");
-        endDate = format(weekEnd, "yyyy-MM-dd");
-      }
-
-      const { data, error } = await supabase
-        .from("appointments")
+  // جلب المواعيد
+  const { data: appointments = [], refetch: refetchAppointments } = useQuery({
+    queryKey: ['appointments-calendar', currentDate, doctorFilter, statusFilter],
+    queryFn: async () => {
+      let query = supabase
+        .from('appointments')
         .select(`
           *,
-          patients (
-            full_name,
-            phone
-          ),
-          profiles:doctor_id (
-            full_name
-          )
+          patients(full_name, phone),
+          profiles(full_name, specialization)
         `)
-        .gte("scheduled_date", startDate)
-        .lte("scheduled_date", endDate)
-        .order("scheduled_date")
-        .order("scheduled_time");
+        .gte('scheduled_date', format(startOfMonth(currentDate), 'yyyy-MM-dd'))
+        .lte('scheduled_date', format(endOfMonth(currentDate), 'yyyy-MM-dd'))
+        .order('scheduled_date', { ascending: true })
+        .order('scheduled_time', { ascending: true });
 
+      if (doctorFilter !== "all") {
+        query = query.eq('doctor_id', doctorFilter);
+      }
+
+      if (statusFilter !== "all") {
+        query = query.eq('status', statusFilter);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-
-      const formattedAppointments = data?.map(appointment => ({
+      
+      return data?.map(appointment => ({
+        ...appointment,
         id: appointment.id,
-        scheduled_date: appointment.scheduled_date,
-        scheduled_time: appointment.scheduled_time,
-        status: appointment.status,
-        appointment_type: appointment.appointment_type,
-        duration_minutes: appointment.duration_minutes,
-        notes: appointment.notes,
-        patient_name: appointment.patients?.full_name || "غير محدد",
-        patient_phone: appointment.patients?.phone || "",
-        doctor_name: appointment.profiles?.full_name || "غير محدد",
-        doctor_id: appointment.doctor_id,
-        total_cost: appointment.total_cost,
-        patient_id: appointment.patient_id
+        title: `${appointment.patients?.full_name} - ${appointment.profiles?.full_name || 'غير محدد'}`,
+        start: new Date(`${appointment.scheduled_date}T${appointment.scheduled_time}`),
+        end: new Date(`${appointment.scheduled_date}T${appointment.scheduled_time}`),
+        resource: appointment
       })) || [];
+    },
+  });
 
-      setAppointments(formattedAppointments);
-    } catch (error) {
-      console.error("Error fetching appointments:", error);
-      toast({
-        variant: "destructive",
-        title: "خطأ",
-        description: "حدث خطأ في تحميل المواعيد",
-      });
-    } finally {
-      setIsLoading(false);
+  // جلب الأطباء للفلترة
+  const { data: doctors = [] } = useQuery({
+    queryKey: ['doctors-filter'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, specialization')
+        .eq('role', 'doctor')
+        .eq('is_active', true)
+        .order('full_name');
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const handleSelectEvent = (event: any) => {
+    setSelectedAppointment(event.resource);
+    setShowAppointmentDialog(true);
+  };
+
+  const handleNavigate = (action: 'prev' | 'next' | 'today') => {
+    let newDate = currentDate;
+    
+    switch (action) {
+      case 'prev':
+        if (view === 'month') newDate = subMonths(currentDate, 1);
+        else if (view === 'week') newDate = subWeeks(currentDate, 1);
+        else newDate = subDays(currentDate, 1);
+        break;
+      case 'next':
+        if (view === 'month') newDate = addMonths(currentDate, 1);
+        else if (view === 'week') newDate = addWeeks(currentDate, 1);
+        else newDate = addDays(currentDate, 1);
+        break;
+      case 'today':
+        newDate = new Date();
+        break;
     }
+    
+    setCurrentDate(newDate);
   };
 
   const getStatusColor = (status: string) => {
-    const colors = {
-      scheduled: "bg-blue-100 text-blue-800 border-blue-300",
-      confirmed: "bg-green-100 text-green-800 border-green-300",
-      in_progress: "bg-yellow-100 text-yellow-800 border-yellow-300",
-      completed: "bg-gray-100 text-gray-800 border-gray-300",
-      cancelled: "bg-red-100 text-red-800 border-red-300"
+    switch (status) {
+      case 'scheduled': return 'bg-blue-500';
+      case 'confirmed': return 'bg-green-500';
+      case 'in_progress': return 'bg-yellow-500';
+      case 'completed': return 'bg-purple-500';
+      case 'cancelled': return 'bg-red-500';
+      case 'no_show': return 'bg-gray-500';
+      default: return 'bg-blue-500';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'scheduled': return 'مجدول';
+      case 'confirmed': return 'مؤكد';
+      case 'in_progress': return 'جاري';
+      case 'completed': return 'مكتمل';
+      case 'cancelled': return 'ملغي';
+      case 'no_show': return 'لم يحضر';
+      default: return status;
+    }
+  };
+
+  const eventStyleGetter = (event: any) => {
+    const backgroundColor = getStatusColor(event.resource.status);
+    return {
+      style: {
+        backgroundColor: backgroundColor.replace('bg-', '#'),
+        border: 'none',
+        borderRadius: '4px',
+        color: 'white',
+        fontSize: '12px',
+        padding: '2px 4px'
+      }
     };
-    return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
-
-  const getAppointmentsForDate = (date: string) => {
-    return appointments.filter(apt => apt.scheduled_date === date);
-  };
-
-  const getAppointmentForTimeSlot = (date: string, timeSlot: string) => {
-    return appointments.find(apt => 
-      apt.scheduled_date === date && apt.scheduled_time === timeSlot + ":00"
-    );
-  };
-
-  const handleEditAppointment = (appointment: AppointmentWithDetails) => {
-    setEditAppointment(appointment);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      setSelectedDate(date);
-    }
-  };
-
-  const navigateDate = (direction: "prev" | "next") => {
-    if (viewMode === "day") {
-      setSelectedDate(direction === "next" ? addDays(selectedDate, 1) : subDays(selectedDate, 1));
-    } else {
-      setSelectedDate(direction === "next" ? addDays(selectedDate, 7) : subDays(selectedDate, 7));
-    }
-  };
-
-  const getWeekDays = () => {
-    const weekStart = startOfWeek(selectedDate, { locale: ar });
-    const weekEnd = endOfWeek(selectedDate, { locale: ar });
-    return eachDayOfInterval({ start: weekStart, end: weekEnd });
-  };
-
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">جاري تحميل التقويم...</div>
-      </div>
-    );
-  }
 
   return (
-    <div className="container mx-auto p-6 space-y-6 max-w-7xl">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* رأس الصفحة */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">تقويم المواعيد</h1>
-          <p className="text-muted-foreground">عرض وإدارة المواعيد الطبية</p>
+          <p className="text-muted-foreground">إدارة وعرض المواعيد في التقويم</p>
         </div>
-        <Button 
-          className="medical-gradient"
-          onClick={() => setIsNewAppointmentDialogOpen(true)}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          موعد جديد
-        </Button>
+        
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => setShowNewAppointmentDialog(true)}
+            className="medical-gradient"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            موعد جديد
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => refetchAppointments()}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            تحديث
+          </Button>
+        </div>
       </div>
 
-      
-      
-      {/* أدوات التحكم */}
+      {/* شريط التحكم */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5" />
-              التحكم بالتقويم
-            </div>
+        <CardContent className="p-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            {/* التنقل */}
             <div className="flex items-center gap-2">
               <Button
-                variant={viewMode === "day" ? "default" : "outline"}
+                variant="outline"
                 size="sm"
-                onClick={() => setViewMode("day")}
+                onClick={() => handleNavigate('prev')}
               >
-                يومي
+                <ChevronRight className="h-4 w-4" />
               </Button>
-              <Button
-                variant={viewMode === "week" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("week")}
-              >
-                أسبوعي
-              </Button>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-[280px] justify-start text-left font-normal",
-                      !selectedDate && "text-muted-foreground"
-                    )}
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {selectedDate ? formatDateTime(selectedDate, false) : "اختر التاريخ"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <UICalendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateSelect}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
               
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => navigateDate("prev")}>
-                  السابق
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => navigateDate("next")}>
-                  التالي
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setSelectedDate(new Date())}>
-                  اليوم
-                </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleNavigate('today')}
+                className="min-w-[80px]"
+              >
+                اليوم
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleNavigate('next')}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <div className="mx-4 font-semibold text-lg">
+                {format(currentDate, 'MMMM yyyy', { locale: ar })}
               </div>
             </div>
-            
-            <div className="text-sm text-gray-600">
-              {viewMode === "day" 
-                ? formatDateTime(selectedDate, false)
-                : `أسبوع ${format(startOfWeek(selectedDate), "d MMM", { locale: ar })} - ${format(endOfWeek(selectedDate), "d MMM yyyy", { locale: ar })}`
-              }
+
+            {/* العرض والفلاتر */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="flex gap-1">
+                <Button
+                  variant={view === 'month' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setView('month')}
+                >
+                  شهر
+                </Button>
+                <Button
+                  variant={view === 'week' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setView('week')}
+                >
+                  أسبوع
+                </Button>
+                <Button
+                  variant={view === 'day' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setView('day')}
+                >
+                  يوم
+                </Button>
+              </div>
+
+              <Select value={doctorFilter} onValueChange={setDoctorFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="كل الأطباء" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الأطباء</SelectItem>
+                  {doctors.map((doctor) => (
+                    <SelectItem key={doctor.id} value={doctor.id}>
+                      {doctor.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="كل الحالات" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الحالات</SelectItem>
+                  <SelectItem value="scheduled">مجدول</SelectItem>
+                  <SelectItem value="confirmed">مؤكد</SelectItem>
+                  <SelectItem value="completed">مكتمل</SelectItem>
+                  <SelectItem value="cancelled">ملغي</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* عرض التقويم */}
-      {viewMode === "day" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>جدول المواعيد - {formatDateTime(selectedDate, false)}</CardTitle>
-            <CardDescription>
-              المواعيد المجدولة لهذا اليوم ({getAppointmentsForDate(format(selectedDate, "yyyy-MM-dd")).length} موعد)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2">
-              {timeSlots.map((timeSlot) => {
-                const appointment = getAppointmentForTimeSlot(format(selectedDate, "yyyy-MM-dd"), timeSlot);
-                
-                return (
-                  <div
-                    key={timeSlot}
-                    className={`p-4 border rounded-lg transition-colors cursor-pointer ${
-                      appointment 
-                        ? "bg-blue-50 border-blue-200 hover:bg-blue-100" 
-                        : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                    }`}
-                    onClick={() => appointment && handleEditAppointment(appointment)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center text-sm font-medium text-gray-600">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {timeSlot}
-                        </div>
-                        
-                        {appointment ? (
-                          <div className="flex items-center gap-4">
-                            <Badge className={getStatusColor(appointment.status)} variant="outline">
-                              {appointment.status === "scheduled" && "مجدول"}
-                              {appointment.status === "confirmed" && "مؤكد"}
-                              {appointment.status === "in_progress" && "جاري"}
-                              {appointment.status === "completed" && "مكتمل"}
-                              {appointment.status === "cancelled" && "ملغي"}
-                            </Badge>
-                            
-                            <div className="flex items-center text-sm">
-                              <User className="h-4 w-4 mr-1 text-blue-600" />
-                              <span className="font-medium">{appointment.patient_name}</span>
-                            </div>
-                            
-                            {appointment.patient_phone && (
-                              <div className="flex items-center text-sm text-gray-600">
-                                <Phone className="h-4 w-4 mr-1" />
-                                {appointment.patient_phone}
-                              </div>
-                            )}
-                            
-                            {appointment.doctor_name && appointment.doctor_name !== "غير محدد" && (
-                              <div className="text-sm text-gray-600">
-                                د. {appointment.doctor_name}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-500">متاح</span>
-                        )}
-                      </div>
-                      
-                      {appointment && (
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditAppointment(appointment);
-                          }}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <div className="text-xs text-gray-500">
-                            {appointment.duration_minutes} دقيقة • {appointment.appointment_type === "regular" ? "عادي" : 
-                             appointment.appointment_type === "emergency" ? "طارئ" : 
-                             appointment.appointment_type === "consultation" ? "استشارة" : "علاج"}
-                            {appointment.total_cost && (
-                              <span> • {formatCurrency(appointment.total_cost)}</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {appointment?.notes && (
-                      <div className="text-xs text-gray-600 mt-2 p-2 bg-white rounded border">
-                        {appointment.notes}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>العرض الأسبوعي</CardTitle>
-            <CardDescription>
-              المواعيد للأسبوع من {format(startOfWeek(selectedDate), "d MMM", { locale: ar })} إلى {format(endOfWeek(selectedDate), "d MMM yyyy", { locale: ar })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-4">
-              {getWeekDays().map((day) => {
-                const dayAppointments = getAppointmentsForDate(format(day, "yyyy-MM-dd"));
-                const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-                
-                return (
-                  <div
-                    key={format(day, "yyyy-MM-dd")}
-                    className={`p-3 border rounded-lg ${isToday ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}
-                  >
-                    <div className="text-center mb-2">
-                      <div className={`text-sm font-medium ${isToday ? "text-blue-600" : "text-gray-900"}`}>
-                        {format(day, "EEE", { locale: ar })}
-                      </div>
-                      <div className={`text-lg font-bold ${isToday ? "text-blue-600" : "text-gray-900"}`}>
-                        {format(day, "d")}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-1">
-                      {dayAppointments.slice(0, 3).map((appointment) => (
-                        <div
-                          key={appointment.id}
-                          className="text-xs p-2 bg-white rounded border cursor-pointer hover:bg-gray-50"
-                          onClick={() => handleEditAppointment(appointment)}
-                        >
-                          <div className="font-medium truncate">{appointment.patient_name}</div>
-                          <div className="text-gray-500">{appointment.scheduled_time.slice(0, 5)}</div>
-                        </div>
-                      ))}
-                      {dayAppointments.length > 3 && (
-                        <div className="text-xs text-center text-gray-500 p-1">
-                          +{dayAppointments.length - 3} أخرى
-                        </div>
-                      )}
-                      {dayAppointments.length === 0 && (
-                        <div className="text-xs text-center text-gray-400 p-2">
-                          لا توجد مواعيد
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* التقويم */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="h-[600px]">
+            <Calendar
+              localizer={localizer}
+              events={appointments}
+              startAccessor="start"
+              endAccessor="end"
+              onSelectEvent={handleSelectEvent}
+              view={view}
+              onView={setView}
+              date={currentDate}
+              onNavigate={setCurrentDate}
+              messages={messages}
+              eventPropGetter={eventStyleGetter}
+              className="rbc-calendar-rtl"
+              culture="ar"
+              rtl={true}
+              showMultiDayTimes={true}
+              step={30}
+              showAllEvents={true}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* إحصائيات سريعة */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{appointments.length}</div>
-            <div className="text-sm text-gray-600">إجمالي المواعيد</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {appointments.filter(a => isSameDay(a.start, new Date())).length}
+            </div>
+            <div className="text-sm text-gray-600">مواعيد اليوم</div>
           </CardContent>
         </Card>
+        
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-green-600">
-              {appointments.filter(apt => apt.status === "completed").length}
+              {appointments.filter(a => a.resource.status === 'confirmed').length}
+            </div>
+            <div className="text-sm text-gray-600">مواعيد مؤكدة</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-yellow-600">
+              {appointments.filter(a => a.resource.status === 'scheduled').length}
+            </div>
+            <div className="text-sm text-gray-600">في الانتظار</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              {appointments.filter(a => a.resource.status === 'completed').length}
             </div>
             <div className="text-sm text-gray-600">مكتملة</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-yellow-600">
-              {appointments.filter(apt => apt.status === "confirmed").length}
-            </div>
-            <div className="text-sm text-gray-600">مؤكدة</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">
-              {appointments.filter(apt => apt.status === "cancelled").length}
-            </div>
-            <div className="text-sm text-gray-600">ملغية</div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Dialog لتعديل الموعد */}
-      <EditAppointmentDialog
-        isOpen={isEditDialogOpen}
-        onClose={() => {
-          setIsEditDialogOpen(false);
-          setEditAppointment(null);
+      {/* حوار تفاصيل الموعد */}
+      <Dialog open={showAppointmentDialog} onOpenChange={setShowAppointmentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>تفاصيل الموعد</DialogTitle>
+          </DialogHeader>
+          
+          {selectedAppointment && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium">المريض</Label>
+                <p className="text-sm text-gray-600">{selectedAppointment.patients?.full_name}</p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">الطبيب</Label>
+                <p className="text-sm text-gray-600">{selectedAppointment.profiles?.full_name || 'غير محدد'}</p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">التاريخ والوقت</Label>
+                <p className="text-sm text-gray-600">
+                  {formatDateTime(new Date(`${selectedAppointment.scheduled_date}T${selectedAppointment.scheduled_time}`))}
+                </p>
+              </div>
+              
+              <div>
+                <Label className="text-sm font-medium">الحالة</Label>
+                <Badge className={`${getStatusColor(selectedAppointment.status)} text-white`}>
+                  {getStatusText(selectedAppointment.status)}
+                </Badge>
+              </div>
+              
+              {selectedAppointment.notes && (
+                <div>
+                  <Label className="text-sm font-medium">ملاحظات</Label>
+                  <p className="text-sm text-gray-600">{selectedAppointment.notes}</p>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    setShowAppointmentDialog(false);
+                    setShowEditAppointmentDialog(true);
+                  }}
+                  className="flex-1"
+                >
+                  تعديل
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAppointmentDialog(false)}
+                  className="flex-1"
+                >
+                  إغلاق
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* حوار موعد جديد */}
+      <NewAppointmentDialog
+        isOpen={showNewAppointmentDialog}
+        onClose={() => setShowNewAppointmentDialog(false)}
+        onSuccess={() => {
+          setShowNewAppointmentDialog(false);
+          refetchAppointments();
         }}
-        appointment={editAppointment}
-        onUpdate={fetchAppointments}
       />
 
-      {/* Dialog لإضافة موعد جديد */}
-      <NewAppointmentDialog
-        isOpen={isNewAppointmentDialogOpen}
-        onClose={() => setIsNewAppointmentDialogOpen(false)}
-        onSuccess={fetchAppointments}
-      />
+      {/* حوار تعديل الموعد */}
+      {selectedAppointment && (
+        <EditAppointmentDialog
+          isOpen={showEditAppointmentDialog}
+          onClose={() => setShowEditAppointmentDialog(false)}
+          onSuccess={() => {
+            setShowEditAppointmentDialog(false);
+            setShowAppointmentDialog(false);
+            refetchAppointments();
+          }}
+          appointment={selectedAppointment}
+        />
+      )}
     </div>
   );
 };

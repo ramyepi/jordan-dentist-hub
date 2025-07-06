@@ -1,58 +1,117 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import React, { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster } from "@/components/ui/toaster";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import AppHeader from "@/components/AppHeader";
+import AdminSidebar from "@/components/AdminSidebar";
+import Patients from "@/pages/Patients";
+import AppointmentsCalendar from "@/pages/AppointmentsCalendar";
+import SystemSettings from "@/pages/SystemSettings";
+import ClinicExpenses from "@/pages/ClinicExpenses";
+import ExpenseCategories from "@/pages/ExpenseCategories";
+import Dashboard from "@/pages/Dashboard";
+import Login from "@/pages/Login";
 import { SystemSettingsProvider } from "@/contexts/SystemSettingsContext";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import Patients from "./pages/Patients";
-import PatientProfile from "./pages/PatientProfile";
-import Appointments from "./pages/Appointments";
-import AppointmentsCalendar from "./pages/AppointmentsCalendar";
-import PatientPayments from "./pages/PatientPayments";
-import SystemSettings from "./pages/SystemSettings";
-import Payments from "./pages/Payments";
-import Expenses from "./pages/Expenses";
-import StaffManagement from "./pages/StaffManagement";
-import FinancialAnalytics from "./pages/FinancialAnalytics";
-import TreatmentServices from "./pages/TreatmentServices";
-import Installments from "./pages/Installments";
-import NotFound from "./pages/NotFound";
-
-const queryClient = new QueryClient();
+import Footer from "@/components/Footer";
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const { toast } = useToast();
+
+  const queryClient = new QueryClient();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+  }, []);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) {
+        setUserProfile(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        toast({
+          variant: "destructive",
+          title: "خطأ",
+          description: "حدث خطأ في جلب معلومات المستخدم",
+        });
+        return;
+      }
+
+      setUserProfile(data);
+    };
+
+    fetchProfile();
+  }, [user, toast]);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Error logging out:", error);
+      toast({
+        variant: "destructive",
+        title: "Logout Failed",
+        description: "Failed to log out. Please try again.",
+      });
+    } else {
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+    }
+  };
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <SystemSettingsProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
+    <SystemSettingsProvider>
+      <QueryClientProvider client={queryClient}>
+        <div className="min-h-screen bg-gray-50 flex flex-col">
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/patients" element={<Patients />} />
-              <Route path="/patient/:id" element={<PatientProfile />} />
-              <Route path="/appointments" element={<Appointments />} />
-              <Route path="/appointments-calendar" element={<AppointmentsCalendar />} />
-              <Route path="/patient-payments" element={<PatientPayments />} />
-              <Route path="/system-settings" element={<SystemSettings />} />
-              <Route path="/payments" element={<Payments />} />
-              <Route path="/expenses" element={<Expenses />} />
-              <Route path="/staff" element={<StaffManagement />} />
-              <Route path="/analytics" element={<FinancialAnalytics />} />
-              <Route path="/services" element={<TreatmentServices />} />
-              <Route path="/installments" element={<Installments />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Toaster />
+            {user && (
+              <AppHeader 
+                userProfile={userProfile} 
+                onLogout={handleLogout}
+              />
+            )}
+            <div className="flex flex-1">
+              {user && userProfile && (
+                <AdminSidebar userProfile={userProfile} />
+              )}
+              <main className="flex-1 p-6 overflow-auto">
+                <Routes>
+                  <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
+                  <Route path="/" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+                  <Route path="/patients" element={user ? <Patients /> : <Navigate to="/login" />} />
+                  <Route path="/appointments" element={user ? <AppointmentsCalendar /> : <Navigate to="/login" />} />
+                  <Route path="/system-settings" element={user ? <SystemSettings /> : <Navigate to="/login" />} />
+                  <Route path="/clinic-expenses" element={user ? <ClinicExpenses /> : <Navigate to="/login" />} />
+                  <Route path="/expense-categories" element={user ? <ExpenseCategories /> : <Navigate to="/login" />} />
+                </Routes>
+              </main>
+            </div>
+            <Footer />
           </BrowserRouter>
-        </TooltipProvider>
-      </SystemSettingsProvider>
-    </QueryClientProvider>
+        </div>
+      </QueryClientProvider>
+    </SystemSettingsProvider>
   );
 }
 
