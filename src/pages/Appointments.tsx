@@ -21,7 +21,9 @@ import {
   ArrowRight,
   AlertCircle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  DollarSign,
+  Minus
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -35,6 +37,7 @@ interface Appointment {
   notes: string | null;
   patient_id: string;
   doctor_id: string;
+  total_cost: number | null;
   patients: {
     full_name: string;
     phone: string;
@@ -55,13 +58,31 @@ interface Doctor {
   full_name: string;
 }
 
+interface TreatmentService {
+  id: string;
+  name: string;
+  price: number;
+  duration_minutes: number | null;
+  category: string;
+}
+
+interface SelectedService {
+  service_id: string;
+  service_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+}
+
 const Appointments = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [treatmentServices, setTreatmentServices] = useState<TreatmentService[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedServices, setSelectedServices] = useState<SelectedService[]>([]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedPatient = searchParams.get("patient");
@@ -81,6 +102,7 @@ const Appointments = () => {
     fetchAppointments();
     fetchPatients();
     fetchDoctors();
+    fetchTreatmentServices();
   }, []);
 
   const fetchAppointments = async () => {
@@ -146,41 +168,128 @@ const Appointments = () => {
     }
   };
 
+  const fetchTreatmentServices = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("treatment_services")
+        .select("id, name, price, duration_minutes, category")
+        .eq("is_active", true)
+        .order("name");
+
+      if (error) {
+        console.error("Error fetching treatment services:", error);
+      } else {
+        setTreatmentServices(data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching treatment services:", error);
+    }
+  };
+
+  const addService = () => {
+    if (treatmentServices.length > 0) {
+      const firstService = treatmentServices[0];
+      const newService: SelectedService = {
+        service_id: firstService.id,
+        service_name: firstService.name,
+        quantity: 1,
+        unit_price: firstService.price,
+        total_price: firstService.price
+      };
+      setSelectedServices([...selectedServices, newService]);
+    }
+  };
+
+  const removeService = (index: number) => {
+    const updatedServices = selectedServices.filter((_, i) => i !== index);
+    setSelectedServices(updatedServices);
+  };
+
+  const updateService = (index: number, field: keyof SelectedService, value: any) => {
+    const updatedServices = [...selectedServices];
+    updatedServices[index] = { ...updatedServices[index], [field]: value };
+    
+    if (field === 'service_id') {
+      const service = treatmentServices.find(s => s.id === value);
+      if (service) {
+        updatedServices[index].service_name = service.name;
+        updatedServices[index].unit_price = service.price;
+        updatedServices[index].total_price = service.price * updatedServices[index].quantity;
+      }
+    } else if (field === 'quantity' || field === 'unit_price') {
+      updatedServices[index].total_price = updatedServices[index].quantity * updatedServices[index].unit_price;
+    }
+    
+    setSelectedServices(updatedServices);
+  };
+
+  const getTotalCost = () => {
+    return selectedServices.reduce((sum, service) => sum + service.total_price, 0);
+  };
+
   const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
-        const { error } = await supabase
+      const totalCost = getTotalCost();
+      
+      // إنشاء الموعد
+      const { data: appointmentData, error: appointmentError } = await supabase
         .from("appointments")
         .insert([{
           ...newAppointment,
           appointment_type: newAppointment.appointment_type as "regular" | "emergency" | "consultation" | "treatment",
-          notes: newAppointment.notes || null
-        }]);
+          notes: newAppointment.notes || null,
+          total_cost: totalCost
+        }])
+        .select()
+        .single();
 
-      if (error) {
+      if (appointmentError) {
         toast({
           variant: "destructive",
           title: "خطأ",
           description: "حدث خطأ في حجز الموعد",
         });
-      } else {
-        toast({
-          title: "تم بنجاح",
-          description: "تم حجز الموعد بنجاح",
-        });
-        setIsAddDialogOpen(false);
-        setNewAppointment({
-          patient_id: "",
-          doctor_id: "",
-          scheduled_date: "",
-          scheduled_time: "",
-          duration_minutes: 60,
-          appointment_type: "regular",
-          notes: ""
-        });
-        fetchAppointments();
+        return;
       }
+
+      // إضافة الخدمات للموعد
+      if (selectedServices.length > 0) {
+        const appointmentServices = selectedServices.map(service => ({
+          appointment_id: appointmentData.id,
+          service_id: service.service_id,
+          quantity: service.quantity,
+          unit_price: service.unit_price,
+          total_price: service.total_price
+        }));
+
+        const { error: servicesError } = await supabase
+          .from("appointment_services")
+          .insert(appointmentServices);
+
+        if (servicesError) {
+          console.error("Error adding appointment services:", servicesError);
+        }
+      }
+
+      toast({
+        title: "تم بنجاح",
+        description: "تم حجز الموعد بنجاح",
+      });
+      
+      setIsAddDialogOpen(false);
+      setNewAppointment({
+        patient_id: "",
+        doctor_id: "",
+        scheduled_date: "",
+        scheduled_time: "",
+        duration_minutes: 60,
+        appointment_type: "regular",
+        notes: ""
+      });
+      setSelectedServices([]);
+      fetchAppointments();
     } catch (error) {
       console.error("Error adding appointment:", error);
     }
@@ -304,15 +413,16 @@ const Appointments = () => {
                         حجز موعد جديد
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
+                    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
                         <DialogTitle>حجز موعد جديد</DialogTitle>
                         <DialogDescription>
-                          أدخل تفاصيل الموعد الجديد
+                          أدخل تفاصيل الموعد الجديد واختر الخدمات العلاجية
                         </DialogDescription>
                       </DialogHeader>
                       
-                      <form onSubmit={handleAddAppointment} className="space-y-4">
+                      <form onSubmit={handleAddAppointment} className="space-y-6">
+                        {/* Basic appointment info */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="patient_id">المريض *</Label>
@@ -406,6 +516,93 @@ const Appointments = () => {
                           </div>
                         </div>
                         
+                        {/* Treatment Services Section */}
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-lg font-medium">الخدمات العلاجية</Label>
+                            <Button 
+                              type="button" 
+                              onClick={addService}
+                              className="gap-2"
+                              size="sm"
+                            >
+                              <Plus className="h-4 w-4" />
+                              إضافة خدمة
+                            </Button>
+                          </div>
+                          
+                          {selectedServices.map((service, index) => (
+                            <div key={index} className="border rounded-lg p-4 bg-gray-50">
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                <div className="space-y-2">
+                                  <Label>الخدمة</Label>
+                                  <Select
+                                    value={service.service_id}
+                                    onValueChange={(value) => updateService(index, 'service_id', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {treatmentServices.map((treatmentService) => (
+                                        <SelectItem key={treatmentService.id} value={treatmentService.id}>
+                                          {treatmentService.name} - {treatmentService.price.toFixed(2)} د.أ
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label>الكمية</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={service.quantity}
+                                    onChange={(e) => updateService(index, 'quantity', parseInt(e.target.value) || 1)}
+                                  />
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label>السعر الوحدة</Label>
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={service.unit_price}
+                                    onChange={(e) => updateService(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                                  />
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <div className="text-lg font-bold text-green-600">
+                                    {service.total_price.toFixed(2)} د.أ
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => removeService(index)}
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {selectedServices.length > 0 && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <span className="text-lg font-medium">إجمالي التكلفة:</span>
+                                <span className="text-2xl font-bold text-blue-600">
+                                  <DollarSign className="inline h-6 w-6" />
+                                  {getTotalCost().toFixed(2)} د.أ
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
                         <div className="space-y-2">
                           <Label htmlFor="notes">ملاحظات</Label>
                           <Input
@@ -486,9 +683,17 @@ const Appointments = () => {
                               {getTypeInArabic(appointment.appointment_type)}
                             </Badge>
                           </div>
-                          <span className="text-sm text-gray-500">
-                            {appointment.duration_minutes} دقيقة
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-500">
+                              {appointment.duration_minutes} دقيقة
+                            </span>
+                            {appointment.total_cost && appointment.total_cost > 0 && (
+                              <div className="flex items-center gap-1 text-green-600 font-bold">
+                                <DollarSign className="h-4 w-4" />
+                                <span>{appointment.total_cost.toFixed(2)} د.أ</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

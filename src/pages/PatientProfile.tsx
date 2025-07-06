@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
+import PaymentDialog from "@/components/PaymentDialog";
 import { 
   User, 
   Phone, 
@@ -83,6 +83,8 @@ const PatientProfile = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -178,6 +180,15 @@ const PatientProfile = () => {
     }
   };
 
+  const handlePayment = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setIsPaymentDialogOpen(true);
+  };
+
+  const handlePaymentComplete = () => {
+    fetchPatientData();
+  };
+
   const getStatusColor = (status: string) => {
     const colors = {
       scheduled: "bg-blue-100 text-blue-800",
@@ -214,6 +225,16 @@ const PatientProfile = () => {
 
   const formatCurrency = (amount: number) => {
     return `${amount.toFixed(2)} د.أ`;
+  };
+
+  // Check if appointment has pending payment
+  const getAppointmentPaymentStatus = (appointmentId: string, totalCost: number) => {
+    const appointmentPayments = payments.filter(p => p.appointment_id === appointmentId);
+    const totalPaid = appointmentPayments.reduce((sum, p) => sum + p.paid_amount, 0);
+    
+    if (totalPaid >= totalCost) return "paid";
+    if (totalPaid > 0) return "partial";
+    return "pending";
   };
 
   if (isLoading) {
@@ -395,7 +416,6 @@ const PatientProfile = () => {
             )}
           </div>
 
-          {/* المواعيد والخدمات */}
           <div className="lg:col-span-2 space-y-6">
             <Card className="shadow-medical">
               <CardHeader>
@@ -415,55 +435,77 @@ const PatientProfile = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {appointments.map((appointment) => (
-                      <div key={appointment.id} className="border rounded-lg p-4 bg-white">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <Badge className={getStatusColor(appointment.status)} variant="secondary">
-                              {getStatusInArabic(appointment.status)}
-                            </Badge>
-                            <span className="text-sm text-gray-600">
-                              {formatDate(appointment.scheduled_date)} - {formatTime(appointment.scheduled_time)}
-                            </span>
-                          </div>
-                          <div className="text-left">
-                            <p className="font-bold text-lg">{formatCurrency(appointment.total_cost || 0)}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2 mb-3">
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-blue-600" />
-                            <span className="font-medium">{appointment.doctor.full_name}</span>
-                            {appointment.doctor.specialization && (
-                              <span className="text-sm text-gray-600">({appointment.doctor.specialization})</span>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {appointment.services.length > 0 && (
-                          <div>
-                            <h4 className="font-medium mb-2">الخدمات المقدمة:</h4>
-                            <div className="space-y-1">
-                              {appointment.services.map((service) => (
-                                <div key={service.id} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                                  <span>{service.service_name}</span>
-                                  <span>
-                                    {service.quantity} × {formatCurrency(service.unit_price)} = {formatCurrency(service.total_price)}
-                                  </span>
-                                </div>
-                              ))}
+                    {appointments.map((appointment) => {
+                      const paymentStatus = getAppointmentPaymentStatus(appointment.id, appointment.total_cost || 0);
+                      const needsPayment = paymentStatus !== "paid" && appointment.total_cost && appointment.total_cost > 0;
+                      
+                      return (
+                        <div key={appointment.id} className="border rounded-lg p-4 bg-white">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <Badge className={getStatusColor(appointment.status)} variant="secondary">
+                                {getStatusInArabic(appointment.status)}
+                              </Badge>
+                              <span className="text-sm text-gray-600">
+                                {formatDate(appointment.scheduled_date)} - {formatTime(appointment.scheduled_time)}
+                              </span>
+                              {paymentStatus !== "paid" && (
+                                <Badge className={getStatusColor(paymentStatus)} variant="secondary">
+                                  {getStatusInArabic(paymentStatus)}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="text-left">
+                                <p className="font-bold text-lg">{formatCurrency(appointment.total_cost || 0)}</p>
+                              </div>
+                              {needsPayment && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handlePayment(appointment)}
+                                  className="gap-1 medical-gradient"
+                                >
+                                  <CreditCard className="h-3 w-3" />
+                                  دفع
+                                </Button>
+                              )}
                             </div>
                           </div>
-                        )}
-                        
-                        {appointment.notes && (
-                          <div className="mt-3 p-2 bg-blue-50 rounded">
-                            <p className="text-sm"><strong>ملاحظات:</strong> {appointment.notes}</p>
+                          
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4 text-blue-600" />
+                              <span className="font-medium">{appointment.doctor.full_name}</span>
+                              {appointment.doctor.specialization && (
+                                <span className="text-sm text-gray-600">({appointment.doctor.specialization})</span>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          
+                          {appointment.services.length > 0 && (
+                            <div>
+                              <h4 className="font-medium mb-2">الخدمات المقدمة:</h4>
+                              <div className="space-y-1">
+                                {appointment.services.map((service) => (
+                                  <div key={service.id} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
+                                    <span>{service.service_name}</span>
+                                    <span>
+                                      {service.quantity} × {formatCurrency(service.unit_price)} = {formatCurrency(service.total_price)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {appointment.notes && (
+                            <div className="mt-3 p-2 bg-blue-50 rounded">
+                              <p className="text-sm"><strong>ملاحظات:</strong> {appointment.notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -535,6 +577,22 @@ const PatientProfile = () => {
           </div>
         </div>
       </main>
+
+      {/* Payment Dialog */}
+      {selectedAppointment && (
+        <PaymentDialog
+          isOpen={isPaymentDialogOpen}
+          onClose={() => {
+            setIsPaymentDialogOpen(false);
+            setSelectedAppointment(null);
+          }}
+          appointmentId={selectedAppointment.id}
+          patientId={patient.id}
+          totalAmount={selectedAppointment.total_cost || 0}
+          patientName={patient.full_name}
+          onPaymentComplete={handlePaymentComplete}
+        />
+      )}
     </div>
   );
 };

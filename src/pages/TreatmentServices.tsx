@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,8 @@ import {
   Edit,
   Clock,
   DollarSign,
-  Search
+  Search,
+  Trash2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -157,6 +157,35 @@ const TreatmentServices = () => {
     }
   };
 
+  const handleDeleteService = async (serviceId: string, serviceName: string) => {
+    if (!confirm(`هل أنت متأكد من حذف الخدمة "${serviceName}"؟`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("treatment_services")
+        .delete()
+        .eq("id", serviceId);
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "خطأ",
+          description: "حدث خطأ في حذف الخدمة",
+        });
+      } else {
+        toast({
+          title: "تم بنجاح",
+          description: "تم حذف الخدمة العلاجية بنجاح",
+        });
+        fetchServices();
+      }
+    } catch (error) {
+      console.error("Error deleting service:", error);
+    }
+  };
+
   const openEditDialog = (service: TreatmentService) => {
     setEditingService(service);
     setNewService({
@@ -258,6 +287,7 @@ const TreatmentServices = () => {
               </DialogHeader>
               
               <form onSubmit={handleAddService} className="space-y-4">
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">اسم الخدمة *</Label>
@@ -403,12 +433,22 @@ const TreatmentServices = () => {
                     <Edit className="h-3 w-3" />
                     تعديل
                   </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="gap-1"
+                    onClick={() => handleDeleteService(service.id, service.name)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    حذف
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
+        
         {filteredServices.length === 0 && (
           <div className="text-center py-12">
             <Stethoscope className="h-16 w-16 mx-auto mb-4 text-gray-400" />
