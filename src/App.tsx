@@ -11,6 +11,8 @@ import Patients from "./pages/Patients";
 import PatientProfile from "./pages/PatientProfile";
 import Appointments from "./pages/Appointments";
 import AppointmentsCalendar from "./pages/AppointmentsCalendar";
+import PatientPayments from "./pages/PatientPayments";
+import SystemSettings from "./pages/SystemSettings";
 import Payments from "./pages/Payments";
 import Expenses from "./pages/Expenses";
 import StaffManagement from "./pages/StaffManagement";

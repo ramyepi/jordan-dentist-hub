@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -8,7 +7,8 @@ import {
   Heart,
   FileText,
   Phone,
-  CalendarDays
+  CalendarDays,
+  CreditCard
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 

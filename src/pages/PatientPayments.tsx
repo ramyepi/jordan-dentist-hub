@@ -166,10 +166,10 @@ const PatientPayments = () => {
         patient_id: formData.patient_id,
         amount: parseFloat(formData.amount),
         paid_amount: parseFloat(formData.paid_amount),
-        payment_method: formData.payment_method as any,
+        payment_method: formData.payment_method as "cash" | "cliq" | "installment",
         payment_date: formData.payment_date,
         notes: formData.notes || null,
-        status: parseFloat(formData.paid_amount) >= parseFloat(formData.amount) ? "paid" : "partial"
+        status: parseFloat(formData.paid_amount) >= parseFloat(formData.amount) ? "paid" as const : "partial" as const
       };
 
       let error;
@@ -182,7 +182,7 @@ const PatientPayments = () => {
       } else {
         const result = await supabase
           .from("payments")
-          .insert([paymentData]);
+          .insert(paymentData);
         error = result.error;
       }
 
