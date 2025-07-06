@@ -1,3 +1,6 @@
+
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -13,7 +16,125 @@ import {
 } from "lucide-react";
 import AdminNavigation from "@/components/navigation/AdminNavigation";
 
+interface DashboardStats {
+  totalAppointments: number;
+  totalPatients: number;
+  monthlyRevenue: number;
+  staffCount: number;
+  todayAppointments: number;
+  pendingPayments: number;
+  completedAppointments: number;
+}
+
 const AdminDashboard = () => {
+  const [stats, setStats] = useState<DashboardStats>({
+    totalAppointments: 0,
+    totalPatients: 0,
+    monthlyRevenue: 0,
+    staffCount: 0,
+    todayAppointments: 0,
+    pendingPayments: 0,
+    completedAppointments: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setIsLoading(true);
+
+      // Fetch appointments data
+      const { data: appointments, error: appointmentsError } = await supabase
+        .from("appointments")
+        .select("id, scheduled_date, status, total_cost");
+
+      if (appointmentsError) throw appointmentsError;
+
+      // Fetch patients data
+      const { data: patients, error: patientsError } = await supabase
+        .from("patients")
+        .select("id, created_at");
+
+      if (patientsError) throw patientsError;
+
+      // Fetch staff data
+      const { data: staff, error: staffError } = await supabase
+        .from("profiles")
+        .select("id, role, is_active")
+        .eq("is_active", true);
+
+      if (staffError) throw staffError;
+
+      // Fetch payments data
+      const { data: payments, error: paymentsError } = await supabase
+        .from("payments")
+        .select("id, amount, paid_amount, status, payment_date");
+
+      if (paymentsError) throw paymentsError;
+
+      // Calculate stats
+      const today = new Date().toISOString().split('T')[0];
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+
+      const todayAppointments = appointments?.filter(apt => 
+        apt.scheduled_date === today
+      ).length || 0;
+
+      const completedAppointments = appointments?.filter(apt => 
+        apt.status === 'completed'
+      ).length || 0;
+
+      const monthlyRevenue = payments?.filter(payment => {
+        if (!payment.payment_date) return false;
+        const paymentDate = new Date(payment.payment_date);
+        return paymentDate.getMonth() === currentMonth && 
+               paymentDate.getFullYear() === currentYear;
+      }).reduce((sum, payment) => sum + (payment.paid_amount || 0), 0) || 0;
+
+      const pendingPayments = payments?.filter(payment => 
+        payment.status === 'pending' || payment.status === 'partial'
+      ).length || 0;
+
+      const newPatientsThisMonth = patients?.filter(patient => {
+        const createdDate = new Date(patient.created_at);
+        return createdDate.getMonth() === currentMonth && 
+               createdDate.getFullYear() === currentYear;
+      }).length || 0;
+
+      setStats({
+        totalAppointments: appointments?.length || 0,
+        totalPatients: patients?.length || 0,
+        monthlyRevenue: monthlyRevenue,
+        staffCount: staff?.length || 0,
+        todayAppointments: todayAppointments,
+        pendingPayments: pendingPayments,
+        completedAppointments: completedAppointments,
+      });
+
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-pulse">
+            <TrendingUp className="h-12 w-12 mx-auto mb-4 text-blue-600" />
+          </div>
+          <p className="text-lg font-medium">جاري تحميل البيانات...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -31,12 +152,14 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="shadow-medical hover:shadow-elevated transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">إجمالي المواعيد</CardTitle>
+              <CardTitle className="text-sm font-medium">مواعيد اليوم</CardTitle>
               <Calendar className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">47</div>
-              <p className="text-xs text-muted-foreground">هذا الأسبوع</p>
+              <div className="text-2xl font-bold">{stats.todayAppointments}</div>
+              <p className="text-xs text-muted-foreground">
+                من إجمالي {stats.totalAppointments} موعد
+              </p>
             </CardContent>
           </Card>
 
@@ -46,8 +169,8 @@ const AdminDashboard = () => {
               <Users className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">156</div>
-              <p className="text-xs text-muted-foreground">+12 هذا الشهر</p>
+              <div className="text-2xl font-bold">{stats.totalPatients}</div>
+              <p className="text-xs text-muted-foreground">مريض مسجل</p>
             </CardContent>
           </Card>
 
@@ -57,8 +180,8 @@ const AdminDashboard = () => {
               <CreditCard className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">32,400 د.أ</div>
-              <p className="text-xs text-muted-foreground">+8% من الشهر الماضي</p>
+              <div className="text-2xl font-bold">{stats.monthlyRevenue.toFixed(2)} د.أ</div>
+              <p className="text-xs text-muted-foreground">هذا الشهر</p>
             </CardContent>
           </Card>
 
@@ -68,8 +191,8 @@ const AdminDashboard = () => {
               <UserCheck className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">8</div>
-              <p className="text-xs text-muted-foreground">2 طبيب، 3 ممرضات، 3 استقبال</p>
+              <div className="text-2xl font-bold">{stats.staffCount}</div>
+              <p className="text-xs text-muted-foreground">موظف نشط</p>
             </CardContent>
           </Card>
         </div>
@@ -90,26 +213,30 @@ const AdminDashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">موعد متأخر</p>
-                    <p className="text-xs text-gray-600">أحمد محمد - تأخر 15 دقيقة</p>
+                {stats.pendingPayments > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-sm">مدفوعات معلقة</p>
+                      <p className="text-xs text-gray-600">يوجد {stats.pendingPayments} دفعة معلقة</p>
+                    </div>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800">عاجل</Badge>
                   </div>
-                  <Badge variant="secondary" className="bg-orange-100 text-orange-800">عاجل</Badge>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">فاتورة مستحقة</p>
-                    <p className="text-xs text-gray-600">مريض: فاطمة علي - 350 د.أ</p>
+                )}
+
+                {stats.todayAppointments > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-sm">مواعيد اليوم</p>
+                      <p className="text-xs text-gray-600">{stats.todayAppointments} موعد اليوم</p>
+                    </div>
+                    <Badge variant="outline">متابعة</Badge>
                   </div>
-                  <Badge variant="outline">متابعة</Badge>
-                </div>
+                )}
 
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div>
-                    <p className="font-medium text-sm">جهاز جديد</p>
-                    <p className="text-xs text-gray-600">تم تثبيت جهاز الأشعة الجديد</p>
+                    <p className="font-medium text-sm">العمليات مكتملة</p>
+                    <p className="text-xs text-gray-600">{stats.completedAppointments} موعد مكتمل</p>
                   </div>
                   <Badge className="bg-green-100 text-green-800">مكتمل</Badge>
                 </div>
@@ -121,27 +248,33 @@ const AdminDashboard = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-green-600" />
-                  ملخص الأداء اليومي
+                  ملخص الأداء
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">نسبة الحضور</span>
-                    <span className="font-bold text-green-600">92%</span>
+                    <span className="text-sm">المواعيد المكتملة</span>
+                    <span className="font-bold text-green-600">
+                      {stats.totalAppointments > 0 
+                        ? Math.round((stats.completedAppointments / stats.totalAppointments) * 100)
+                        : 0}%
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">متوسط وقت الانتظار</span>
-                    <span className="font-bold text-blue-600">12 دقيقة</span>
+                    <span className="text-sm">إجمالي المرضى</span>
+                    <span className="font-bold text-blue-600">{stats.totalPatients}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">رضا المرضى</span>
-                    <span className="font-bold text-purple-600">4.8/5</span>
+                    <span className="text-sm">الموظفين النشطين</span>
+                    <span className="font-bold text-purple-600">{stats.staffCount}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">كفاءة العيادة</span>
-                    <Badge className="bg-green-100 text-green-800">ممتاز</Badge>
+                    <span className="text-sm font-medium">حالة العيادة</span>
+                    <Badge className="bg-green-100 text-green-800">
+                      {stats.todayAppointments > 0 ? "نشطة" : "هادئة"}
+                    </Badge>
                   </div>
                 </div>
               </CardContent>

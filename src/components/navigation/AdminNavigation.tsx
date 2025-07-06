@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -5,12 +6,11 @@ import {
   Users, 
   CreditCard, 
   FileText, 
-  UserCheck,
   Building,
+  UserCheck,
   TrendingUp,
-  DollarSign,
-  BarChart3,
-  Settings
+  Settings,
+  CalendarDays
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -19,52 +19,52 @@ const AdminNavigation = () => {
 
   const adminActions = [
     { 
-      icon: Users, 
-      title: "إدارة الموظفين", 
-      description: "إضافة وإدارة موظفي العيادة",
-      path: "/staff-management" 
-    },
-    { 
       icon: Calendar, 
       title: "إدارة المواعيد", 
-      description: "مراقبة جميع المواعيد",
+      description: "عرض وإدارة جميع المواعيد",
       path: "/appointments" 
     },
     { 
-      icon: UserCheck, 
+      icon: CalendarDays, 
+      title: "تقويم المواعيد", 
+      description: "عرض المواعيد في التقويم",
+      path: "/appointments-calendar" 
+    },
+    { 
+      icon: Users, 
       title: "إدارة المرضى", 
-      description: "ملفات وسجلات المرضى",
+      description: "عرض وتحديث بيانات المرضى",
       path: "/patients" 
     },
     { 
+      icon: UserCheck, 
+      title: "إدارة الموظفين", 
+      description: "إدارة حسابات الموظفين",
+      path: "/staff" 
+    },
+    { 
       icon: CreditCard, 
-      title: "إدارة الدفعات", 
-      description: "مراقبة المدفوعات والفواتير",
+      title: "المدفوعات والفواتير", 
+      description: "إدارة المدفوعات والفواتير",
       path: "/payments" 
     },
     { 
-      icon: DollarSign, 
+      icon: Building, 
       title: "مصروفات العيادة", 
-      description: "تتبع المصاريف والتكاليف",
+      description: "تسجيل ومتابعة المصروفات",
       path: "/expenses" 
     },
     { 
       icon: TrendingUp, 
       title: "التحليلات المالية", 
-      description: "تقارير الأرباح والخسائر",
-      path: "/financial-analytics" 
+      description: "تقارير مالية وإحصائيات",
+      path: "/analytics" 
     },
     { 
       icon: FileText, 
-      title: "التقارير", 
-      description: "تقارير شاملة للعيادة",
-      path: "/reports" 
-    },
-    { 
-      icon: Settings, 
-      title: "إعدادات النظام", 
-      description: "إعدادات عامة ومتقدمة",
-      path: "/settings" 
+      title: "خدمات العلاج", 
+      description: "إدارة خدمات وأسعار العلاج",
+      path: "/services" 
     }
   ];
 
@@ -72,11 +72,11 @@ const AdminNavigation = () => {
     <Card className="shadow-medical">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5 text-red-600" />
-          إدارة العيادة الشاملة
+          <Settings className="h-5 w-5 text-blue-600" />
+          أدوات الإدارة
         </CardTitle>
         <CardDescription>
-          جميع أدوات الإدارة والتحكم في العيادة
+          إدارة شاملة لجميع عمليات العيادة
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

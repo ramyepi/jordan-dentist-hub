@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import PatientProfile from "./pages/PatientProfile";
 import Appointments from "./pages/Appointments";
+import AppointmentsCalendar from "./pages/AppointmentsCalendar";
 import Payments from "./pages/Payments";
 import Expenses from "./pages/Expenses";
 import StaffManagement from "./pages/StaffManagement";
@@ -33,6 +34,7 @@ function App() {
             <Route path="/patients" element={<Patients />} />
             <Route path="/patient/:id" element={<PatientProfile />} />
             <Route path="/appointments" element={<Appointments />} />
+            <Route path="/appointments-calendar" element={<AppointmentsCalendar />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/staff" element={<StaffManagement />} />

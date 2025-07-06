@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -6,7 +7,8 @@ import {
   CreditCard, 
   FileText, 
   Stethoscope,
-  ClipboardList
+  ClipboardList,
+  CalendarDays
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -19,6 +21,12 @@ const DoctorNavigation = () => {
       title: "مواعيدي", 
       description: "عرض وإدارة مواعيدي",
       path: "/appointments" 
+    },
+    { 
+      icon: CalendarDays, 
+      title: "تقويم المواعيد", 
+      description: "عرض المواعيد في التقويم",
+      path: "/appointments-calendar" 
     },
     { 
       icon: Users, 

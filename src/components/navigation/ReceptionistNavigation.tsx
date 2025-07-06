@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -6,7 +7,8 @@ import {
   CreditCard, 
   Phone,
   UserPlus,
-  CalendarPlus
+  CalendarPlus,
+  CalendarDays
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -31,6 +33,12 @@ const ReceptionistNavigation = () => {
       title: "إدارة المواعيد", 
       description: "عرض وتعديل المواعيد",
       path: "/appointments" 
+    },
+    { 
+      icon: CalendarDays, 
+      title: "تقويم المواعيد", 
+      description: "عرض المواعيد في التقويم",
+      path: "/appointments-calendar" 
     },
     { 
       icon: Users, 
