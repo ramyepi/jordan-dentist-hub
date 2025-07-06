@@ -88,23 +88,45 @@ const PatientProfile = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
+    console.log("PatientProfile mounted with ID:", id);
     if (id) {
       fetchPatientData();
+    } else {
+      console.error("No patient ID provided");
+      setIsLoading(false);
     }
   }, [id]);
 
   const fetchPatientData = async () => {
+    if (!id) {
+      console.error("No patient ID available for fetching data");
+      return;
+    }
+
     try {
       setIsLoading(true);
+      console.log("Fetching data for patient ID:", id);
       
       // جلب بيانات المريض
       const { data: patientData, error: patientError } = await supabase
         .from("patients")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
-      if (patientError) throw patientError;
+      if (patientError) {
+        console.error("Error fetching patient:", patientError);
+        throw patientError;
+      }
+      
+      if (!patientData) {
+        console.log("No patient found with ID:", id);
+        setPatient(null);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Patient data loaded:", patientData);
       setPatient(patientData);
 
       // جلب الملخص المالي
@@ -114,8 +136,12 @@ const PatientProfile = () => {
         .eq("patient_id", id)
         .maybeSingle();
 
-      if (summaryError && summaryError.code !== 'PGRST116') throw summaryError;
-      setFinancialSummary(summaryData);
+      if (summaryError && summaryError.code !== 'PGRST116') {
+        console.error("Error fetching financial summary:", summaryError);
+      } else {
+        console.log("Financial summary loaded:", summaryData);
+        setFinancialSummary(summaryData);
+      }
 
       // جلب المواعيد مع تفاصيل الطبيب والخدمات
       const { data: appointmentsData, error: appointmentsError } = await supabase
@@ -134,21 +160,24 @@ const PatientProfile = () => {
         .eq("patient_id", id)
         .order("scheduled_date", { ascending: false });
 
-      if (appointmentsError) throw appointmentsError;
-      
-      const formattedAppointments = appointmentsData?.map(apt => ({
-        ...apt,
-        doctor: apt.profiles || { full_name: 'غير محدد', specialization: null },
-        services: apt.appointment_services?.map((service: any) => ({
-          id: service.id,
-          service_name: service.treatment_services?.name || 'خدمة غير محددة',
-          quantity: service.quantity,
-          unit_price: service.unit_price,
-          total_price: service.total_price
-        })) || []
-      })) || [];
-
-      setAppointments(formattedAppointments);
+      if (appointmentsError) {
+        console.error("Error fetching appointments:", appointmentsError);
+      } else {
+        const formattedAppointments = appointmentsData?.map(apt => ({
+          ...apt,
+          doctor: apt.profiles || { full_name: 'غير محدد', specialization: null },
+          services: apt.appointment_services?.map((service: any) => ({
+            id: service.id,
+            service_name: service.treatment_services?.name || 'خدمة غير محددة',
+            quantity: service.quantity,
+            unit_price: service.unit_price,
+            total_price: service.total_price
+          })) || []
+        })) || [];
+        
+        console.log("Appointments loaded:", formattedAppointments);
+        setAppointments(formattedAppointments);
+      }
 
       // جلب المدفوعات
       const { data: paymentsData, error: paymentsError } = await supabase
@@ -160,14 +189,17 @@ const PatientProfile = () => {
         .eq("patient_id", id)
         .order("created_at", { ascending: false });
 
-      if (paymentsError) throw paymentsError;
-      
-      const formattedPayments = paymentsData?.map(payment => ({
-        ...payment,
-        appointment_date: payment.appointments?.scheduled_date || ''
-      })) || [];
-
-      setPayments(formattedPayments);
+      if (paymentsError) {
+        console.error("Error fetching payments:", paymentsError);
+      } else {
+        const formattedPayments = paymentsData?.map(payment => ({
+          ...payment,
+          appointment_date: payment.appointments?.scheduled_date || ''
+        })) || [];
+        
+        console.log("Payments loaded:", formattedPayments);
+        setPayments(formattedPayments);
+      }
 
     } catch (error) {
       console.error("Error fetching patient data:", error);

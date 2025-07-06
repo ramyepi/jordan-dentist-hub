@@ -109,7 +109,7 @@ function App() {
                   <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/auth" />} />
                   <Route path="/staff-management" element={user ? <StaffManagement /> : <Navigate to="/auth" />} />
                   <Route path="/patients" element={user ? <Patients /> : <Navigate to="/auth" />} />
-                  <Route path="/patient-profile/:id" element={user ? <PatientProfile /> : <Navigate to="/auth" />} />
+                  <Route path="/patient/:id" element={user ? <PatientProfile /> : <Navigate to="/auth" />} />
                   <Route path="/appointments" element={user ? <Appointments /> : <Navigate to="/auth" />} />
                   <Route path="/appointments-calendar" element={user ? <AppointmentsCalendar /> : <Navigate to="/auth" />} />
                   <Route path="/payments" element={user ? <Payments /> : <Navigate to="/auth" />} />

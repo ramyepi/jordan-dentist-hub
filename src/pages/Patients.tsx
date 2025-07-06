@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -18,7 +20,9 @@ import {
   FileText,
   ArrowRight,
   Eye,
-  DollarSign
+  DollarSign,
+  Edit,
+  Trash2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -48,10 +52,22 @@ const Patients = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const navigate = useNavigate();
 
   // Form states
   const [newPatient, setNewPatient] = useState({
+    full_name: "",
+    phone: "",
+    email: "",
+    date_of_birth: "",
+    address: "",
+    medical_history: "",
+    notes: ""
+  });
+
+  const [editPatient, setEditPatient] = useState({
     full_name: "",
     phone: "",
     email: "",
@@ -136,6 +152,83 @@ const Patients = () => {
       }
     } catch (error) {
       console.error("Error adding patient:", error);
+    }
+  };
+
+  const handleEditClick = (patient: Patient) => {
+    setEditingPatient(patient);
+    setEditPatient({
+      full_name: patient.full_name,
+      phone: patient.phone,
+      email: patient.email || "",
+      date_of_birth: patient.date_of_birth || "",
+      address: patient.address || "",
+      medical_history: patient.medical_history || "",
+      notes: patient.notes || ""
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdatePatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingPatient) return;
+
+    try {
+      const { error } = await supabase
+        .from("patients")
+        .update({
+          ...editPatient,
+          email: editPatient.email || null,
+          date_of_birth: editPatient.date_of_birth || null,
+          address: editPatient.address || null,
+          medical_history: editPatient.medical_history || null,
+          notes: editPatient.notes || null
+        })
+        .eq("id", editingPatient.id);
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "خطأ",
+          description: "حدث خطأ في تحديث بيانات المريض",
+        });
+      } else {
+        toast({
+          title: "تم بنجاح",
+          description: "تم تحديث بيانات المريض بنجاح",
+        });
+        setIsEditDialogOpen(false);
+        setEditingPatient(null);
+        fetchPatients();
+      }
+    } catch (error) {
+      console.error("Error updating patient:", error);
+    }
+  };
+
+  const handleDeletePatient = async (patientId: string, patientName: string) => {
+    try {
+      const { error } = await supabase
+        .from("patients")
+        .delete()
+        .eq("id", patientId);
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "خطأ",
+          description: "حدث خطأ في حذف المريض",
+        });
+      } else {
+        toast({
+          title: "تم بنجاح",
+          description: `تم حذف المريض ${patientName} بنجاح`,
+        });
+        fetchPatients();
+      }
+    } catch (error) {
+      console.error("Error deleting patient:", error);
     }
   };
 
@@ -315,6 +408,109 @@ const Patients = () => {
           </Dialog>
         </div>
 
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>تعديل بيانات المريض</DialogTitle>
+              <DialogDescription>
+                تحديث بيانات المريض {editingPatient?.full_name}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <form onSubmit={handleUpdatePatient} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_full_name">الاسم الكامل *</Label>
+                  <Input
+                    id="edit_full_name"
+                    value={editPatient.full_name}
+                    onChange={(e) => setEditPatient({...editPatient, full_name: e.target.value})}
+                    placeholder="أدخل الاسم الكامل"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit_phone">رقم الهاتف *</Label>
+                  <Input
+                    id="edit_phone"
+                    value={editPatient.phone}
+                    onChange={(e) => setEditPatient({...editPatient, phone: e.target.value})}
+                    placeholder="07xxxxxxxx"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit_email">البريد الإلكتروني</Label>
+                  <Input
+                    id="edit_email"
+                    type="email"
+                    value={editPatient.email}
+                    onChange={(e) => setEditPatient({...editPatient, email: e.target.value})}
+                    placeholder="example@email.com"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit_date_of_birth">تاريخ الميلاد</Label>
+                  <Input
+                    id="edit_date_of_birth"
+                    type="date"
+                    value={editPatient.date_of_birth}
+                    onChange={(e) => setEditPatient({...editPatient, date_of_birth: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit_address">العنوان</Label>
+                <Input
+                  id="edit_address"
+                  value={editPatient.address}
+                  onChange={(e) => setEditPatient({...editPatient, address: e.target.value})}
+                  placeholder="أدخل العنوان"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit_medical_history">التاريخ المرضي</Label>
+                <Input
+                  id="edit_medical_history"
+                  value={editPatient.medical_history}
+                  onChange={(e) => setEditPatient({...editPatient, medical_history: e.target.value})}
+                  placeholder="أي أمراض أو علاجات سابقة"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit_notes">ملاحظات</Label>
+                <Input
+                  id="edit_notes"
+                  value={editPatient.notes}
+                  onChange={(e) => setEditPatient({...editPatient, notes: e.target.value})}
+                  placeholder="أي ملاحظات إضافية"
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <Button type="submit" className="medical-gradient flex-1">
+                  حفظ التغييرات
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                  className="flex-1"
+                >
+                  إلغاء
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         {/* Patients Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredPatients.map((patient) => (
@@ -393,21 +589,42 @@ const Patients = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="flex-1 gap-1"
-                    onClick={() => navigate(`/appointments?patient=${patient.id}`)}
+                    className="gap-1"
+                    onClick={() => handleEditClick(patient)}
                   >
-                    <Calendar className="h-3 w-3" />
-                    مواعيد
+                    <Edit className="h-3 w-3" />
+                    تعديل
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 gap-1"
-                    onClick={() => navigate(`/payments?patient=${patient.id}`)}
-                  >
-                    <FileText className="h-3 w-3" />
-                    مدفوعات
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1 text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        حذف
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          هل أنت متأكد من حذف المريض "{patient.full_name}"؟ 
+                          هذا الإجراء لا يمكن التراجع عنه وسيتم حذف جميع البيانات المرتبطة بهذا المريض.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => handleDeletePatient(patient.id, patient.full_name)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          حذف
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </CardContent>
             </Card>
