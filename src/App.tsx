@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -92,7 +93,7 @@ function App() {
             )}
             <div className="flex flex-1">
               {user && userProfile && (
-                <AdminSidebar userProfile={userProfile} />
+                <AdminSidebar />
               )}
               <main className="flex-1 p-6 overflow-auto">
                 <Routes>
@@ -114,3 +115,4 @@ function App() {
 }
 
 export default App;
+
