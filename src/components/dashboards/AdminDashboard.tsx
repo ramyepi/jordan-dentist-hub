@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { adminNavigation } from "@/components/navigation/AdminNavigation";
+import { useNavigate } from "react-router-dom";
 
 interface DashboardStats {
   totalAppointments: number;
@@ -26,6 +28,7 @@ interface DashboardStats {
 }
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalAppointments: 0,
     totalPatients: 0,
@@ -211,16 +214,16 @@ const AdminDashboard = () => {
                 {adminNavigation.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <a
+                    <button
                       key={item.name}
-                      href={item.href}
-                      className="flex items-center gap-3 p-4 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all duration-200 group"
+                      onClick={() => navigate(item.href)}
+                      className="flex items-center gap-3 p-4 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 transition-all duration-200 group cursor-pointer"
                     >
                       <Icon className="h-5 w-5 text-blue-600 group-hover:scale-110 transition-transform" />
                       <span className="font-medium text-gray-700 group-hover:text-blue-800">
                         {item.name}
                       </span>
-                    </a>
+                    </button>
                   );
                 })}
               </div>
