@@ -5,7 +5,6 @@ import { Stethoscope } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { toast } from "@/hooks/use-toast";
-import AppHeader from "@/components/AppHeader";
 import AdminDashboard from "@/components/dashboards/AdminDashboard";
 import DoctorDashboard from "@/components/dashboards/DoctorDashboard";
 import ReceptionistDashboard from "@/components/dashboards/ReceptionistDashboard";
@@ -30,7 +29,6 @@ const Dashboard = () => {
     console.log("Fetching profile for user:", userId);
     
     try {
-      // Wait a brief moment to ensure the database trigger has completed
       await new Promise(resolve => setTimeout(resolve, 500));
 
       const { data: profileData, error: profileError } = await supabase
@@ -46,7 +44,6 @@ const Dashboard = () => {
 
       if (!profileData) {
         console.log("No profile found, creating one...");
-        // If no profile exists, create one with default values
         const { data: newProfile, error: insertError } = await supabase
           .from("profiles")
           .insert({
@@ -109,7 +106,6 @@ const Dashboard = () => {
         if (isMounted) {
           setError(error.message || "حدث خطأ في تحميل بيانات المستخدم");
           
-          // If it's an auth error, redirect to login
           if (error.message?.includes('JWT') || error.message?.includes('session')) {
             navigate("/auth");
           } else {
@@ -129,7 +125,6 @@ const Dashboard = () => {
 
     initializeAuth();
 
-    // Listen for auth changes - simplified to avoid infinite loops
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session?.user?.id);
       
@@ -140,13 +135,11 @@ const Dashboard = () => {
           navigate("/auth");
         }
       } else if (event === 'SIGNED_IN') {
-        // Only reload if we don't have a user or it's a different user
         if (!user || user.id !== session.user.id) {
           console.log("New user signed in, reloading data...");
           if (isMounted) {
             setUser(session.user);
             setIsLoading(true);
-            // Use setTimeout to avoid blocking the auth state change callback
             setTimeout(() => {
               if (isMounted) {
                 fetchProfile(session.user.id)
@@ -170,7 +163,7 @@ const Dashboard = () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate]); // Remove user dependency to avoid infinite loops
+  }, [navigate]);
 
   // Render role-specific dashboard based on user role
   const renderDashboard = () => {
@@ -186,7 +179,7 @@ const Dashboard = () => {
       case 'nurse':
         return <NurseDashboard />;
       default:
-        return <AdminDashboard />; // Fallback to admin dashboard
+        return <AdminDashboard />;
     }
   };
 
@@ -229,7 +222,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen">
-      <AppHeader profile={profile} />
       {renderDashboard()}
     </div>
   );

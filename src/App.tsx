@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -10,10 +9,18 @@ import AppHeader from "@/components/AppHeader";
 import AdminSidebar from "@/components/AdminSidebar";
 import Patients from "@/pages/Patients";
 import AppointmentsCalendar from "@/pages/AppointmentsCalendar";
+import Appointments from "@/pages/Appointments";
 import SystemSettings from "@/pages/SystemSettings";
 import Expenses from "@/pages/Expenses";
 import Dashboard from "@/pages/Dashboard";
 import Auth from "@/pages/Auth";
+import StaffManagement from "@/pages/StaffManagement";
+import FinancialAnalytics from "@/pages/FinancialAnalytics";
+import Payments from "@/pages/Payments";
+import Installments from "@/pages/Installments";
+import PatientPayments from "@/pages/PatientPayments";
+import PatientProfile from "@/pages/PatientProfile";
+import TreatmentServices from "@/pages/TreatmentServices";
 import { SystemSettingsProvider } from "@/contexts/SystemSettingsContext";
 import Footer from "@/components/Footer";
 
@@ -99,10 +106,19 @@ function App() {
                 <Routes>
                   <Route path="/auth" element={user ? <Navigate to="/" /> : <Auth />} />
                   <Route path="/" element={user ? <Dashboard /> : <Navigate to="/auth" />} />
+                  <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/auth" />} />
+                  <Route path="/staff-management" element={user ? <StaffManagement /> : <Navigate to="/auth" />} />
                   <Route path="/patients" element={user ? <Patients /> : <Navigate to="/auth" />} />
-                  <Route path="/appointments" element={user ? <AppointmentsCalendar /> : <Navigate to="/auth" />} />
-                  <Route path="/system-settings" element={user ? <SystemSettings /> : <Navigate to="/auth" />} />
+                  <Route path="/patient-profile/:id" element={user ? <PatientProfile /> : <Navigate to="/auth" />} />
+                  <Route path="/appointments" element={user ? <Appointments /> : <Navigate to="/auth" />} />
+                  <Route path="/appointments-calendar" element={user ? <AppointmentsCalendar /> : <Navigate to="/auth" />} />
+                  <Route path="/payments" element={user ? <Payments /> : <Navigate to="/auth" />} />
+                  <Route path="/patient-payments" element={user ? <PatientPayments /> : <Navigate to="/auth" />} />
+                  <Route path="/installments" element={user ? <Installments /> : <Navigate to="/auth" />} />
                   <Route path="/expenses" element={user ? <Expenses /> : <Navigate to="/auth" />} />
+                  <Route path="/financial-analytics" element={user ? <FinancialAnalytics /> : <Navigate to="/auth" />} />
+                  <Route path="/treatment-services" element={user ? <TreatmentServices /> : <Navigate to="/auth" />} />
+                  <Route path="/system-settings" element={user ? <SystemSettings /> : <Navigate to="/auth" />} />
                 </Routes>
               </main>
             </div>
@@ -115,4 +131,3 @@ function App() {
 }
 
 export default App;
-

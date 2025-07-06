@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,10 @@ import {
   Building,
   ClipboardList,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  CalendarDays,
+  Stethoscope,
+  Receipt
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -43,16 +47,34 @@ const AdminSidebar = () => {
       description: "قائمة وإدارة المرضى"
     },
     {
-      title: "إدارة المواعيد",
+      title: "المواعيد",
       icon: Calendar,
       path: "/appointments",
-      description: "جدولة ومتابعة المواعيد"
+      description: "إدارة المواعيد"
+    },
+    {
+      title: "التقويم",
+      icon: CalendarDays,
+      path: "/appointments-calendar",
+      description: "عرض تقويم المواعيد"
     },
     {
       title: "إدارة الدفعات",
       icon: CreditCard,
       path: "/payments",
       description: "الدفعات والفواتير"
+    },
+    {
+      title: "دفعات المرضى",
+      icon: Receipt,
+      path: "/patient-payments",
+      description: "دفعات المرضى الفردية"
+    },
+    {
+      title: "الأقساط",
+      icon: ClipboardList,
+      path: "/installments",
+      description: "إدارة الأقساط"
     },
     {
       title: "مصروفات العيادة",
@@ -67,15 +89,15 @@ const AdminSidebar = () => {
       description: "تقارير وتحليلات مالية"
     },
     {
-      title: "التقارير",
-      icon: FileText,
-      path: "/reports",
-      description: "تقارير شاملة"
+      title: "الخدمات العلاجية",
+      icon: Stethoscope,
+      path: "/treatment-services",
+      description: "إدارة الخدمات العلاجية"
     },
     {
       title: "إعدادات النظام",
       icon: Settings,
-      path: "/settings",
+      path: "/system-settings",
       description: "إعدادات عامة"
     }
   ];
