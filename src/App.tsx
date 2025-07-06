@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -9,10 +10,9 @@ import AdminSidebar from "@/components/AdminSidebar";
 import Patients from "@/pages/Patients";
 import AppointmentsCalendar from "@/pages/AppointmentsCalendar";
 import SystemSettings from "@/pages/SystemSettings";
-import ClinicExpenses from "@/pages/ClinicExpenses";
-import ExpenseCategories from "@/pages/ExpenseCategories";
+import Expenses from "@/pages/Expenses";
 import Dashboard from "@/pages/Dashboard";
-import Login from "@/pages/Login";
+import Auth from "@/pages/Auth";
 import { SystemSettingsProvider } from "@/contexts/SystemSettingsContext";
 import Footer from "@/components/Footer";
 
@@ -87,8 +87,7 @@ function App() {
             <Toaster />
             {user && (
               <AppHeader 
-                userProfile={userProfile} 
-                onLogout={handleLogout}
+                profile={userProfile} 
               />
             )}
             <div className="flex flex-1">
@@ -97,13 +96,12 @@ function App() {
               )}
               <main className="flex-1 p-6 overflow-auto">
                 <Routes>
-                  <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
-                  <Route path="/" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-                  <Route path="/patients" element={user ? <Patients /> : <Navigate to="/login" />} />
-                  <Route path="/appointments" element={user ? <AppointmentsCalendar /> : <Navigate to="/login" />} />
-                  <Route path="/system-settings" element={user ? <SystemSettings /> : <Navigate to="/login" />} />
-                  <Route path="/clinic-expenses" element={user ? <ClinicExpenses /> : <Navigate to="/login" />} />
-                  <Route path="/expense-categories" element={user ? <ExpenseCategories /> : <Navigate to="/login" />} />
+                  <Route path="/auth" element={user ? <Navigate to="/" /> : <Auth />} />
+                  <Route path="/" element={user ? <Dashboard /> : <Navigate to="/auth" />} />
+                  <Route path="/patients" element={user ? <Patients /> : <Navigate to="/auth" />} />
+                  <Route path="/appointments" element={user ? <AppointmentsCalendar /> : <Navigate to="/auth" />} />
+                  <Route path="/system-settings" element={user ? <SystemSettings /> : <Navigate to="/auth" />} />
+                  <Route path="/expenses" element={user ? <Expenses /> : <Navigate to="/auth" />} />
                 </Routes>
               </main>
             </div>

@@ -80,7 +80,7 @@ const AppointmentsCalendar = () => {
       }
 
       if (statusFilter !== "all") {
-        query = query.eq('status', statusFilter);
+        query = query.eq('status', statusFilter as 'scheduled' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'no_show');
       }
 
       const { data, error } = await query;
@@ -441,7 +441,7 @@ const AppointmentsCalendar = () => {
         <EditAppointmentDialog
           isOpen={showEditAppointmentDialog}
           onClose={() => setShowEditAppointmentDialog(false)}
-          onSuccess={() => {
+          onUpdate={() => {
             setShowEditAppointmentDialog(false);
             setShowAppointmentDialog(false);
             refetchAppointments();
