@@ -183,6 +183,8 @@ const AppointmentsCalendar = () => {
         </Button>
       </div>
 
+      
+      
       {/* أدوات التحكم */}
       <Card>
         <CardHeader>
@@ -461,7 +463,6 @@ const AppointmentsCalendar = () => {
         isOpen={isNewAppointmentDialogOpen}
         onClose={() => setIsNewAppointmentDialogOpen(false)}
         onSuccess={fetchAppointments}
-        defaultDate={selectedDate}
       />
     </div>
   );

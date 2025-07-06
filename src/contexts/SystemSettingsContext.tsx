@@ -64,14 +64,16 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
       if (error) throw error;
 
       if (data) {
+        // Type cast to include the new fields
+        const settingsData = data as any;
         setSettings({
-          id: data.id,
-          language: data.language || defaultSettings.language,
-          time_format: data.time_format || defaultSettings.time_format,
-          timezone: data.timezone || defaultSettings.timezone,
-          date_format: data.date_format || defaultSettings.date_format,
-          currency: data.currency || defaultSettings.currency,
-          currency_symbol: data.currency_symbol || defaultSettings.currency_symbol
+          id: settingsData.id,
+          language: settingsData.language || defaultSettings.language,
+          time_format: settingsData.time_format || defaultSettings.time_format,
+          timezone: settingsData.timezone || defaultSettings.timezone,
+          date_format: settingsData.date_format || defaultSettings.date_format,
+          currency: settingsData.currency || defaultSettings.currency,
+          currency_symbol: settingsData.currency_symbol || defaultSettings.currency_symbol
         });
       }
     } catch (error) {
