@@ -22,7 +22,7 @@ const NewAppointmentDialog = ({ isOpen, onClose, onSuccess }: NewAppointmentDial
     doctor_id: "",
     scheduled_date: "",
     scheduled_time: "",
-    appointment_type: "regular" as const,
+    appointment_type: "regular" as "regular" | "emergency" | "consultation" | "treatment",
     notes: "",
     duration_minutes: 60
   });
