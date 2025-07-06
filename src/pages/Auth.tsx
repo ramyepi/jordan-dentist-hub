@@ -58,22 +58,6 @@ const Auth = () => {
           description: error.message,
         });
       } else {
-        // Update the profile with additional data after signup
-        if (data.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ 
-              role: role,
-              phone: phone,
-              specialization: role === 'doctor' ? specialization : null
-            })
-            .eq('user_id', data.user.id);
-
-          if (profileError) {
-            console.error('Profile update error:', profileError);
-          }
-        }
-
         toast({
           title: "تم إنشاء الحساب بنجاح",
           description: "تم إنشاء حسابك بنجاح. يمكنك الآن تسجيل الدخول.",

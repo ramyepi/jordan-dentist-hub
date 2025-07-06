@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Users, UserPlus, Edit, Trash2, Phone, Mail, Calendar, Building } from "lucide-react";
 import AdminSidebar from "@/components/AdminSidebar";
@@ -36,6 +37,7 @@ const StaffManagement = () => {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [showAddStaff, setShowAddStaff] = useState(false);
   const navigate = useNavigate();
 
   // Form state for editing
@@ -49,6 +51,20 @@ const StaffManagement = () => {
     salary: "",
     emergency_contact: "",
     is_active: true
+  });
+
+  // Form state for adding new staff
+  const [newStaffData, setNewStaffData] = useState({
+    email: "",
+    password: "",
+    full_name: "",
+    role: "nurse" as "doctor" | "nurse" | "receptionist" | "admin",
+    phone: "",
+    specialization: "",
+    employee_id: "",
+    hire_date: "",
+    salary: "",
+    emergency_contact: ""
   });
 
   useEffect(() => {
@@ -206,6 +222,74 @@ const StaffManagement = () => {
     }
   };
 
+  const handleAddStaff = async () => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: newStaffData.email,
+        password: newStaffData.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            full_name: newStaffData.full_name,
+            role: newStaffData.role,
+            phone: newStaffData.phone,
+            specialization: newStaffData.role === 'doctor' ? newStaffData.specialization : null
+          }
+        }
+      });
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "خطأ في إضافة الموظف",
+          description: error.message,
+        });
+      } else {
+        // Update the profile with additional admin data
+        if (data.user) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ 
+              employee_id: newStaffData.employee_id || null,
+              hire_date: newStaffData.hire_date || null,
+              salary: newStaffData.salary ? parseFloat(newStaffData.salary) : null,
+              emergency_contact: newStaffData.emergency_contact || null
+            })
+            .eq('user_id', data.user.id);
+
+          if (profileError) {
+            console.error('Profile update error:', profileError);
+          }
+        }
+
+        toast({
+          title: "تم إضافة الموظف",
+          description: "تم إضافة الموظف الجديد بنجاح",
+        });
+        setShowAddStaff(false);
+        setNewStaffData({
+          email: "",
+          password: "",
+          full_name: "",
+          role: "nurse",
+          phone: "",
+          specialization: "",
+          employee_id: "",
+          hire_date: "",
+          salary: "",
+          emergency_contact: ""
+        });
+        fetchStaffProfiles();
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "خطأ",
+        description: "حدث خطأ أثناء إضافة الموظف",
+      });
+    }
+  };
+
   const filteredProfiles = profiles.filter(profile => {
     const matchesSearch = profile.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          profile.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -235,8 +319,16 @@ const StaffManagement = () => {
         <div className="p-6">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">إدارة الموظفين</h1>
-            <p className="text-gray-600">إدارة وتحديث بيانات موظفي العيادة</p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">إدارة الموظفين</h1>
+                <p className="text-gray-600">إدارة وتحديث بيانات موظفي العيادة</p>
+              </div>
+              <Button onClick={() => setShowAddStaff(true)} className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                إضافة موظف جديد
+              </Button>
+            </div>
           </div>
 
           {/* Filters and Search */}
@@ -450,6 +542,139 @@ const StaffManagement = () => {
                 </Button>
                 <Button onClick={handleSaveProfile}>
                   حفظ التغييرات
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Add Staff Dialog */}
+          <Dialog open={showAddStaff} onOpenChange={setShowAddStaff}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>إضافة موظف جديد</DialogTitle>
+                <DialogDescription>
+                  إنشاء حساب موظف جديد وتعيين البيانات الأساسية
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new_email">البريد الإلكتروني</Label>
+                  <Input
+                    id="new_email"
+                    type="email"
+                    value={newStaffData.email}
+                    onChange={(e) => setNewStaffData({...newStaffData, email: e.target.value})}
+                    placeholder="البريد الإلكتروني للموظف"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new_password">كلمة المرور</Label>
+                  <Input
+                    id="new_password"
+                    type="password"
+                    value={newStaffData.password}
+                    onChange={(e) => setNewStaffData({...newStaffData, password: e.target.value})}
+                    placeholder="كلمة مرور قوية"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new_full_name">الاسم الكامل</Label>
+                  <Input
+                    id="new_full_name"
+                    value={newStaffData.full_name}
+                    onChange={(e) => setNewStaffData({...newStaffData, full_name: e.target.value})}
+                    placeholder="الاسم الكامل"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new_role">الوظيفة</Label>
+                  <Select value={newStaffData.role} onValueChange={(value: any) => setNewStaffData({...newStaffData, role: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="doctor">طبيب</SelectItem>
+                      <SelectItem value="nurse">ممرضة</SelectItem>
+                      <SelectItem value="receptionist">موظف استقبال</SelectItem>
+                      <SelectItem value="admin">مدير</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new_phone">رقم الهاتف</Label>
+                  <Input
+                    id="new_phone"
+                    value={newStaffData.phone}
+                    onChange={(e) => setNewStaffData({...newStaffData, phone: e.target.value})}
+                    placeholder="رقم الهاتف"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new_employee_id">رقم الموظف</Label>
+                  <Input
+                    id="new_employee_id"
+                    value={newStaffData.employee_id}
+                    onChange={(e) => setNewStaffData({...newStaffData, employee_id: e.target.value})}
+                    placeholder="رقم الموظف"
+                  />
+                </div>
+                
+                {newStaffData.role === 'doctor' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="new_specialization">التخصص</Label>
+                    <Input
+                      id="new_specialization"
+                      value={newStaffData.specialization}
+                      onChange={(e) => setNewStaffData({...newStaffData, specialization: e.target.value})}
+                      placeholder="التخصص الطبي"
+                    />
+                  </div>
+                )}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new_hire_date">تاريخ التوظيف</Label>
+                  <Input
+                    id="new_hire_date"
+                    type="date"
+                    value={newStaffData.hire_date}
+                    onChange={(e) => setNewStaffData({...newStaffData, hire_date: e.target.value})}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new_salary">الراتب (د.أ)</Label>
+                  <Input
+                    id="new_salary"
+                    type="number"
+                    value={newStaffData.salary}
+                    onChange={(e) => setNewStaffData({...newStaffData, salary: e.target.value})}
+                    placeholder="الراتب الشهري"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="new_emergency_contact">جهة الاتصال للطوارئ</Label>
+                  <Input
+                    id="new_emergency_contact"
+                    value={newStaffData.emergency_contact}
+                    onChange={(e) => setNewStaffData({...newStaffData, emergency_contact: e.target.value})}
+                    placeholder="رقم الطوارئ"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowAddStaff(false)}>
+                  إلغاء
+                </Button>
+                <Button onClick={handleAddStaff}>
+                  إضافة الموظف
                 </Button>
               </div>
             </DialogContent>
