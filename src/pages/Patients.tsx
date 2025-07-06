@@ -16,7 +16,9 @@ import {
   Mail, 
   Calendar,
   FileText,
-  ArrowRight
+  ArrowRight,
+  Eye,
+  DollarSign
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -32,8 +34,17 @@ interface Patient {
   created_at: string;
 }
 
+interface PatientWithSummary extends Patient {
+  patient_financial_summary?: {
+    total_appointments: number;
+    total_amount: number;
+    total_paid: number;
+    total_pending: number;
+  };
+}
+
 const Patients = () => {
-  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patients, setPatients] = useState<PatientWithSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -58,7 +69,15 @@ const Patients = () => {
     try {
       const { data, error } = await supabase
         .from("patients")
-        .select("*")
+        .select(`
+          *,
+          patient_financial_summary(
+            total_appointments,
+            total_amount,
+            total_paid,
+            total_pending
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -127,6 +146,10 @@ const Patients = () => {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('ar-JO');
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `${amount.toFixed(2)} د.أ`;
   };
 
   if (isLoading) {
@@ -198,6 +221,7 @@ const Patients = () => {
               </DialogHeader>
               
               <form onSubmit={handleAddPatient} className="space-y-4">
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="full_name">الاسم الكامل *</Label>
@@ -323,10 +347,49 @@ const Patients = () => {
                     <span>{formatDate(patient.date_of_birth)}</span>
                   </div>
                 )}
+
+                {/* Financial Summary */}
+                {patient.patient_financial_summary && (
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium">الملخص المالي</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-600">مواعيد:</span>
+                        <span className="mr-1 font-medium">{patient.patient_financial_summary.total_appointments}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">مدفوع:</span>
+                        <span className="mr-1 font-medium text-green-600">
+                          {formatCurrency(patient.patient_financial_summary.total_paid)}
+                        </span>
+                      </div>
+                      {patient.patient_financial_summary.total_pending > 0 && (
+                        <div className="col-span-2">
+                          <span className="text-gray-600">معلق:</span>
+                          <span className="mr-1 font-medium text-red-600">
+                            {formatCurrency(patient.patient_financial_summary.total_pending)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 
                 <Separator />
                 
                 <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 gap-1"
+                    onClick={() => navigate(`/patient/${patient.id}`)}
+                  >
+                    <Eye className="h-3 w-3" />
+                    الملف
+                  </Button>
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -340,10 +403,10 @@ const Patients = () => {
                     variant="outline" 
                     size="sm" 
                     className="flex-1 gap-1"
-                    onClick={() => navigate(`/patient/${patient.id}`)}
+                    onClick={() => navigate(`/payments?patient=${patient.id}`)}
                   >
                     <FileText className="h-3 w-3" />
-                    ملف
+                    مدفوعات
                   </Button>
                 </div>
               </CardContent>

@@ -9,6 +9,54 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      appointment_services: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          quantity: number
+          service_id: string
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          service_id: string
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          service_id?: string
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_services_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_services_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
@@ -21,6 +69,7 @@ export type Database = {
           scheduled_date: string
           scheduled_time: string
           status: Database["public"]["Enums"]["appointment_status"]
+          total_cost: number | null
           treatment_plan: string | null
           updated_at: string
         }
@@ -35,6 +84,7 @@ export type Database = {
           scheduled_date: string
           scheduled_time: string
           status?: Database["public"]["Enums"]["appointment_status"]
+          total_cost?: number | null
           treatment_plan?: string | null
           updated_at?: string
         }
@@ -49,6 +99,7 @@ export type Database = {
           scheduled_date?: string
           scheduled_time?: string
           status?: Database["public"]["Enums"]["appointment_status"]
+          total_cost?: number | null
           treatment_plan?: string | null
           updated_at?: string
         }
@@ -268,6 +319,53 @@ export type Database = {
           },
         ]
       }
+      patient_financial_summary: {
+        Row: {
+          created_at: string
+          id: string
+          last_appointment_date: string | null
+          last_payment_date: string | null
+          patient_id: string
+          total_amount: number
+          total_appointments: number
+          total_paid: number
+          total_pending: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_appointment_date?: string | null
+          last_payment_date?: string | null
+          patient_id: string
+          total_amount?: number
+          total_appointments?: number
+          total_paid?: number
+          total_pending?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_appointment_date?: string | null
+          last_payment_date?: string | null
+          patient_id?: string
+          total_amount?: number
+          total_appointments?: number
+          total_paid?: number
+          total_pending?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_financial_summary_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           address: string | null
@@ -412,6 +510,42 @@ export type Database = {
           specialization?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      treatment_services: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_active: boolean
+          name: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price?: number
+          updated_at?: string
         }
         Relationships: []
       }
