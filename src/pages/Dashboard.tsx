@@ -26,11 +26,63 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
+  const fetchProfile = async (userId: string) => {
+    console.log("Fetching profile for user:", userId);
+    
+    try {
+      // Wait a brief moment to ensure the database trigger has completed
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Profile fetch error:", profileError);
+        throw profileError;
+      }
+
+      if (!profileData) {
+        console.log("No profile found, creating one...");
+        // If no profile exists, create one with default values
+        const { data: newProfile, error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            user_id: userId,
+            full_name: user?.user_metadata?.full_name || 'مستخدم جديد',
+            role: (user?.user_metadata?.role as 'doctor' | 'receptionist' | 'nurse' | 'admin') || 'nurse',
+            phone: user?.user_metadata?.phone || null,
+            specialization: user?.user_metadata?.specialization || null
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error("Profile creation error:", insertError);
+          throw insertError;
+        }
+
+        console.log("Profile created:", newProfile);
+        setProfile(newProfile);
+      } else {
+        console.log("Profile loaded:", profileData);
+        setProfile(profileData);
+      }
+    } catch (error: any) {
+      console.error("Profile fetch error:", error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
-    const getProfile = async () => {
+    let isMounted = true;
+    
+    const initializeAuth = async () => {
       try {
+        console.log("Initializing auth...");
         setError(null);
-        console.log("Starting to fetch user session...");
         
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
@@ -46,84 +98,79 @@ const Dashboard = () => {
         }
 
         console.log("Session found, user ID:", session.user.id);
-        setUser(session.user);
-
-        // Wait a brief moment to ensure the database trigger has completed
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .maybeSingle();
-
-        if (profileError) {
-          console.error("Profile fetch error:", profileError);
-          throw profileError;
-        }
-
-        if (!profileData) {
-          console.log("No profile found, creating one...");
-          // If no profile exists, create one with default values
-          const { data: newProfile, error: insertError } = await supabase
-            .from("profiles")
-            .insert({
-              user_id: session.user.id,
-              full_name: session.user.user_metadata?.full_name || 'مستخدم جديد',
-              role: (session.user.user_metadata?.role as 'doctor' | 'receptionist' | 'nurse' | 'admin') || 'nurse',
-              phone: session.user.user_metadata?.phone || null,
-              specialization: session.user.user_metadata?.specialization || null
-            })
-            .select()
-            .single();
-
-          if (insertError) {
-            console.error("Profile creation error:", insertError);
-            throw insertError;
-          }
-
-          console.log("Profile created:", newProfile);
-          setProfile(newProfile);
-        } else {
-          console.log("Profile loaded:", profileData);
-          setProfile(profileData);
+        
+        if (isMounted) {
+          setUser(session.user);
+          await fetchProfile(session.user.id);
         }
       } catch (error: any) {
-        console.error("Dashboard error:", error);
-        setError(error.message || "حدث خطأ في تحميل بيانات المستخدم");
+        console.error("Auth initialization error:", error);
         
-        // If it's an auth error, redirect to login
-        if (error.message?.includes('JWT') || error.message?.includes('session')) {
-          navigate("/auth");
-        } else {
-          toast({
-            variant: "destructive",
-            title: "خطأ",
-            description: error.message || "حدث خطأ في تحميل بيانات المستخدم",
-          });
+        if (isMounted) {
+          setError(error.message || "حدث خطأ في تحميل بيانات المستخدم");
+          
+          // If it's an auth error, redirect to login
+          if (error.message?.includes('JWT') || error.message?.includes('session')) {
+            navigate("/auth");
+          } else {
+            toast({
+              variant: "destructive",
+              title: "خطأ",
+              description: error.message || "حدث خطأ في تحميل بيانات المستخدم",
+            });
+          }
         }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
-    getProfile();
+    initializeAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Listen for auth changes - simplified to avoid infinite loops
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session?.user?.id);
       
       if (event === 'SIGNED_OUT' || !session) {
-        navigate("/auth");
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        // Reload profile data when auth state changes
-        setIsLoading(true);
-        await getProfile();
+        if (isMounted) {
+          setUser(null);
+          setProfile(null);
+          navigate("/auth");
+        }
+      } else if (event === 'SIGNED_IN') {
+        // Only reload if we don't have a user or it's a different user
+        if (!user || user.id !== session.user.id) {
+          console.log("New user signed in, reloading data...");
+          if (isMounted) {
+            setUser(session.user);
+            setIsLoading(true);
+            // Use setTimeout to avoid blocking the auth state change callback
+            setTimeout(() => {
+              if (isMounted) {
+                fetchProfile(session.user.id)
+                  .catch((error) => {
+                    console.error("Error fetching profile after signin:", error);
+                    setError(error.message || "حدث خطأ في تحميل بيانات المستخدم");
+                  })
+                  .finally(() => {
+                    if (isMounted) {
+                      setIsLoading(false);
+                    }
+                  });
+              }
+            }, 100);
+          }
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
-  }, [navigate]);
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [navigate]); // Remove user dependency to avoid infinite loops
 
   // Render role-specific dashboard based on user role
   const renderDashboard = () => {
@@ -151,6 +198,7 @@ const Dashboard = () => {
             <Stethoscope className="h-12 w-12 mx-auto mb-4 text-blue-600" />
           </div>
           <p className="text-lg font-medium">جاري التحميل...</p>
+          <p className="text-sm text-gray-600 mt-2">يتم تحميل بيانات المستخدم</p>
         </div>
       </div>
     );
@@ -165,7 +213,11 @@ const Dashboard = () => {
           </div>
           <p className="text-lg font-medium text-red-600 mb-4">{error}</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              setError(null);
+              setIsLoading(true);
+              window.location.reload();
+            }}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             إعادة المحاولة
