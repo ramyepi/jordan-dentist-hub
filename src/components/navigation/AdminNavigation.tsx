@@ -6,11 +6,12 @@ import {
   Users, 
   CreditCard, 
   FileText, 
-  Building,
-  UserCheck,
-  TrendingUp,
   Settings,
-  CalendarDays
+  BarChart3,
+  Stethoscope,
+  UserPlus,
+  CalendarDays,
+  DollarSign
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -33,38 +34,50 @@ const AdminNavigation = () => {
     { 
       icon: Users, 
       title: "إدارة المرضى", 
-      description: "عرض وتحديث بيانات المرضى",
+      description: "عرض وإدارة ملفات المرضى",
       path: "/patients" 
     },
     { 
-      icon: UserCheck, 
+      icon: UserPlus, 
       title: "إدارة الموظفين", 
-      description: "إدارة حسابات الموظفين",
+      description: "إدارة الأطباء والممرضات",
       path: "/staff" 
     },
     { 
       icon: CreditCard, 
-      title: "المدفوعات والفواتير", 
-      description: "إدارة المدفوعات والفواتير",
+      title: "إدارة المدفوعات", 
+      description: "متابعة مدفوعات المرضى",
       path: "/payments" 
     },
     { 
-      icon: Building, 
-      title: "مصروفات العيادة", 
-      description: "تسجيل ومتابعة المصروفات",
-      path: "/expenses" 
-    },
-    { 
-      icon: TrendingUp, 
-      title: "التحليلات المالية", 
-      description: "تقارير مالية وإحصائيات",
-      path: "/analytics" 
+      icon: DollarSign, 
+      title: "محاسبة المرضى", 
+      description: "تسجيل وإدارة دفعات المرضى",
+      path: "/patient-payments" 
     },
     { 
       icon: FileText, 
-      title: "خدمات العلاج", 
-      description: "إدارة خدمات وأسعار العلاج",
+      title: "إدارة المصروفات", 
+      description: "تسجيل مصروفات العيادة",
+      path: "/expenses" 
+    },
+    { 
+      icon: BarChart3, 
+      title: "التحليلات المالية", 
+      description: "تقارير الأرباح والمصروفات",
+      path: "/analytics" 
+    },
+    { 
+      icon: Stethoscope, 
+      title: "الخدمات العلاجية", 
+      description: "إدارة الخدمات والأسعار",
       path: "/services" 
+    },
+    { 
+      icon: Settings, 
+      title: "الإعدادات العامة", 
+      description: "إعدادات النظام والتفضيلات",
+      path: "/system-settings" 
     }
   ];
 
@@ -72,11 +85,11 @@ const AdminNavigation = () => {
     <Card className="shadow-medical">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Settings className="h-5 w-5 text-blue-600" />
-          أدوات الإدارة
+          <Settings className="h-5 w-5 text-purple-600" />
+          لوحة تحكم الإدارة
         </CardTitle>
         <CardDescription>
-          إدارة شاملة لجميع عمليات العيادة
+          إدارة شاملة للعيادة والنظام
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

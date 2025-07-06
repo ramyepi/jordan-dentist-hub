@@ -35,6 +35,12 @@ const NurseNavigation = () => {
       path: "/patients" 
     },
     { 
+      icon: CreditCard, 
+      title: "محاسبة المرضى", 
+      description: "تسجيل وإدارة دفعات المرضى",
+      path: "/patient-payments" 
+    },
+    { 
       icon: ClipboardList, 
       title: "المساعدة الطبية", 
       description: "تسجيل الملاحظات والمساعدة",

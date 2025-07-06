@@ -35,6 +35,8 @@ function App() {
             <Route path="/patient/:id" element={<PatientProfile />} />
             <Route path="/appointments" element={<Appointments />} />
             <Route path="/appointments-calendar" element={<AppointmentsCalendar />} />
+            <Route path="/patient-payments" element={<PatientPayments />} />
+            <Route path="/system-settings" element={<SystemSettings />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/staff" element={<StaffManagement />} />

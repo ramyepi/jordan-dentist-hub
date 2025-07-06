@@ -61,7 +61,7 @@ export type Database = {
         Row: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           created_at: string
-          doctor_id: string
+          doctor_id: string | null
           duration_minutes: number
           id: string
           notes: string | null
@@ -76,7 +76,7 @@ export type Database = {
         Insert: {
           appointment_type?: Database["public"]["Enums"]["appointment_type"]
           created_at?: string
-          doctor_id: string
+          doctor_id?: string | null
           duration_minutes?: number
           id?: string
           notes?: string | null
@@ -91,7 +91,7 @@ export type Database = {
         Update: {
           appointment_type?: Database["public"]["Enums"]["appointment_type"]
           created_at?: string
-          doctor_id?: string
+          doctor_id?: string | null
           duration_minutes?: number
           id?: string
           notes?: string | null
@@ -512,6 +512,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      system_settings: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          language: string
+          time_format: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          language?: string
+          time_format?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          language?: string
+          time_format?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_settings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       treatment_services: {
         Row: {

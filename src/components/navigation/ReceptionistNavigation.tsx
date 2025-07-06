@@ -53,6 +53,12 @@ const ReceptionistNavigation = () => {
       path: "/payments" 
     },
     { 
+      icon: DollarSign, 
+      title: "محاسبة المرضى", 
+      description: "تسجيل وإدارة دفعات المرضى",
+      path: "/patient-payments" 
+    },
+    { 
       icon: Phone, 
       title: "المتابعة الهاتفية", 
       description: "متابعة المرضى والمواعيد",
