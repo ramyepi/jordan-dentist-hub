@@ -34,13 +34,6 @@ const AppointmentsCalendar = () => {
     "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"
   ];
 
-  const statusColumns = [
-    { key: "scheduled", title: "مجدول", color: "bg-blue-50 border-blue-200" },
-    { key: "confirmed", title: "مؤكد", color: "bg-green-50 border-green-200" },
-    { key: "in_progress", title: "جاري", color: "bg-yellow-50 border-yellow-200" },
-    { key: "completed", title: "مكتمل", color: "bg-gray-50 border-gray-200" }
-  ];
-
   useEffect(() => {
     fetchAppointments();
   }, [selectedDate]);
@@ -102,61 +95,9 @@ const AppointmentsCalendar = () => {
     return colors[status as keyof typeof colors] || "bg-gray-100 text-gray-800";
   };
 
-  const getAppointmentsByStatus = (status: string) => {
-    return appointments.filter(apt => apt.status === status);
+  const getAppointmentForTimeSlot = (timeSlot: string) => {
+    return appointments.find(apt => apt.scheduled_time === timeSlot + ":00");
   };
-
-  const AppointmentCard = ({ appointment }: { appointment: AppointmentWithDetails }) => (
-    <Card className="mb-3 hover:shadow-md transition-shadow cursor-pointer">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between mb-2">
-          <Badge className={getStatusColor(appointment.status)} variant="outline">
-            {appointment.status === "scheduled" && "مجدول"}
-            {appointment.status === "confirmed" && "مؤكد"}
-            {appointment.status === "in_progress" && "جاري"}
-            {appointment.status === "completed" && "مكتمل"}
-            {appointment.status === "cancelled" && "ملغي"}
-          </Badge>
-          <div className="flex items-center text-sm text-gray-600">
-            <Clock className="h-4 w-4 mr-1" />
-            {appointment.scheduled_time}
-          </div>
-        </div>
-        
-        <div className="space-y-1">
-          <div className="flex items-center text-sm">
-            <User className="h-4 w-4 mr-1 text-blue-600" />
-            <span className="font-medium">{appointment.patient_name}</span>
-          </div>
-          
-          {appointment.patient_phone && (
-            <div className="flex items-center text-sm text-gray-600">
-              <Phone className="h-4 w-4 mr-1" />
-              {appointment.patient_phone}
-            </div>
-          )}
-          
-          {appointment.doctor_name && appointment.doctor_name !== "غير محدد" && (
-            <div className="text-sm text-gray-600">
-              د. {appointment.doctor_name}
-            </div>
-          )}
-          
-          <div className="text-xs text-gray-500">
-            {appointment.duration_minutes} دقيقة • {appointment.appointment_type === "regular" ? "عادي" : 
-             appointment.appointment_type === "emergency" ? "طارئ" : 
-             appointment.appointment_type === "consultation" ? "استشارة" : "علاج"}
-          </div>
-          
-          {appointment.notes && (
-            <div className="text-xs text-gray-600 mt-1 p-1 bg-gray-50 rounded">
-              {appointment.notes}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   if (isLoading) {
     return (
@@ -200,41 +141,88 @@ const AppointmentsCalendar = () => {
         </CardContent>
       </Card>
 
-      {/* Kanban Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statusColumns.map((column) => {
-          const columnAppointments = getAppointmentsByStatus(column.key);
-          
-          return (
-            <Card key={column.key} className={`${column.color} min-h-[500px]`}>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center justify-between">
-                  {column.title}
-                  <Badge variant="secondary" className="ml-2">
-                    {columnAppointments.length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {columnAppointments.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
-                    لا توجد مواعيد
+      {/* جدول المواعيد */}
+      <Card>
+        <CardHeader>
+          <CardTitle>جدول المواعيد</CardTitle>
+          <CardDescription>
+            المواعيد المجدولة لتاريخ {format(new Date(selectedDate), "d MMMM yyyy", { locale: ar })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2">
+            {timeSlots.map((timeSlot) => {
+              const appointment = getAppointmentForTimeSlot(timeSlot);
+              
+              return (
+                <div
+                  key={timeSlot}
+                  className={`p-4 border rounded-lg transition-colors ${
+                    appointment 
+                      ? "bg-blue-50 border-blue-200 hover:bg-blue-100" 
+                      : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center text-sm font-medium text-gray-600">
+                        <Clock className="h-4 w-4 mr-1" />
+                        {timeSlot}
+                      </div>
+                      
+                      {appointment ? (
+                        <div className="flex items-center gap-4">
+                          <Badge className={getStatusColor(appointment.status)} variant="outline">
+                            {appointment.status === "scheduled" && "مجدول"}
+                            {appointment.status === "confirmed" && "مؤكد"}
+                            {appointment.status === "in_progress" && "جاري"}
+                            {appointment.status === "completed" && "مكتمل"}
+                            {appointment.status === "cancelled" && "ملغي"}
+                          </Badge>
+                          
+                          <div className="flex items-center text-sm">
+                            <User className="h-4 w-4 mr-1 text-blue-600" />
+                            <span className="font-medium">{appointment.patient_name}</span>
+                          </div>
+                          
+                          {appointment.patient_phone && (
+                            <div className="flex items-center text-sm text-gray-600">
+                              <Phone className="h-4 w-4 mr-1" />
+                              {appointment.patient_phone}
+                            </div>
+                          )}
+                          
+                          {appointment.doctor_name && appointment.doctor_name !== "غير محدد" && (
+                            <div className="text-sm text-gray-600">
+                              د. {appointment.doctor_name}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500">متاح</span>
+                      )}
+                    </div>
+                    
+                    {appointment && (
+                      <div className="text-xs text-gray-500">
+                        {appointment.duration_minutes} دقيقة • {appointment.appointment_type === "regular" ? "عادي" : 
+                         appointment.appointment_type === "emergency" ? "طارئ" : 
+                         appointment.appointment_type === "consultation" ? "استشارة" : "علاج"}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  columnAppointments
-                    .sort((a, b) => a.scheduled_time.localeCompare(b.scheduled_time))
-                    .map((appointment) => (
-                      <AppointmentCard 
-                        key={appointment.id} 
-                        appointment={appointment} 
-                      />
-                    ))
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                  
+                  {appointment?.notes && (
+                    <div className="text-xs text-gray-600 mt-2 p-2 bg-white rounded border">
+                      {appointment.notes}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* إحصائيات سريعة */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -247,7 +235,7 @@ const AppointmentsCalendar = () => {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-green-600">
-              {getAppointmentsByStatus("completed").length}
+              {appointments.filter(apt => apt.status === "completed").length}
             </div>
             <div className="text-sm text-gray-600">مكتملة</div>
           </CardContent>
@@ -255,7 +243,7 @@ const AppointmentsCalendar = () => {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-yellow-600">
-              {getAppointmentsByStatus("confirmed").length}
+              {appointments.filter(apt => apt.status === "confirmed").length}
             </div>
             <div className="text-sm text-gray-600">مؤكدة</div>
           </CardContent>
@@ -263,7 +251,7 @@ const AppointmentsCalendar = () => {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-red-600">
-              {getAppointmentsByStatus("cancelled").length}
+              {appointments.filter(apt => apt.status === "cancelled").length}
             </div>
             <div className="text-sm text-gray-600">ملغية</div>
           </CardContent>
