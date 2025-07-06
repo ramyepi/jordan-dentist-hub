@@ -72,6 +72,7 @@ interface Payment {
   status: string;
   payment_date: string | null;
   appointment_date: string;
+  appointment_id: string;
   notes: string | null;
 }
 
