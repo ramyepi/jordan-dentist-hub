@@ -7,32 +7,78 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Settings, Globe, Clock, Shield, Save } from "lucide-react";
+import { Settings, Globe, Clock, Shield, Save, DollarSign } from "lucide-react";
+import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 
 interface SystemSetting {
   id: string;
   language: string;
   time_format: string;
+  timezone: string;
+  date_format: string;
+  currency: string;
+  currency_symbol: string;
   created_by: string;
   created_at: string;
   updated_at: string;
 }
 
 const SystemSettings = () => {
-  const [settings, setSettings] = useState<SystemSetting | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
 
+  const { settings, updateSettings, formatDateTime, formatCurrency } = useSystemSettings();
+
   const [formData, setFormData] = useState({
     language: "ar",
-    time_format: "24h"
+    time_format: "24h",
+    timezone: "Asia/Amman",
+    date_format: "dd/MM/yyyy",
+    currency: "JOD",
+    currency_symbol: "د.أ"
   });
+
+  const timezones = [
+    { value: "Asia/Amman", label: "عمان (UTC+3)" },
+    { value: "Asia/Riyadh", label: "الرياض (UTC+3)" },
+    { value: "Asia/Dubai", label: "دبي (UTC+4)" },
+    { value: "Europe/London", label: "لندن (UTC+0)" },
+    { value: "America/New_York", label: "نيويورك (UTC-5)" }
+  ];
+
+  const currencies = [
+    { value: "JOD", symbol: "د.أ", label: "دينار أردني" },
+    { value: "SAR", symbol: "ر.س", label: "ريال سعودي" },
+    { value: "AED", symbol: "د.إ", label: "درهم إماراتي" },
+    { value: "USD", symbol: "$", label: "دولار أمريكي" },
+    { value: "EUR", symbol: "€", label: "يورو" }
+  ];
+
+  const dateFormats = [
+    { value: "dd/MM/yyyy", label: "يوم/شهر/سنة (31/12/2024)" },
+    { value: "MM/dd/yyyy", label: "شهر/يوم/سنة (12/31/2024)" },
+    { value: "yyyy-MM-dd", label: "سنة-شهر-يوم (2024-12-31)" },
+    { value: "dd-MM-yyyy", label: "يوم-شهر-سنة (31-12-2024)" }
+  ];
 
   useEffect(() => {
     fetchCurrentUserProfile();
-    fetchSettings();
   }, []);
+
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        language: settings.language,
+        time_format: settings.time_format,
+        timezone: settings.timezone,
+        date_format: settings.date_format,
+        currency: settings.currency,
+        currency_symbol: settings.currency_symbol
+      });
+    }
+    setIsLoading(false);
+  }, [settings]);
 
   const fetchCurrentUserProfile = async () => {
     try {
@@ -52,36 +98,6 @@ const SystemSettings = () => {
     }
   };
 
-  const fetchSettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("system_settings")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        setSettings(data);
-        setFormData({
-          language: data.language,
-          time_format: data.time_format
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-      toast({
-        variant: "destructive",
-        title: "خطأ",
-        description: "حدث خطأ في تحميل الإعدادات",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSave = async () => {
     if (!currentUserProfile || currentUserProfile.role !== 'admin') {
       toast({
@@ -93,48 +109,17 @@ const SystemSettings = () => {
     }
 
     setIsSaving(true);
+    await updateSettings(formData);
+    setIsSaving(false);
+  };
 
-    try {
-      const settingsData = {
-        language: formData.language,
-        time_format: formData.time_format,
-        created_by: currentUserProfile.id
-      };
-
-      let error;
-      if (settings) {
-        // تحديث الإعدادات الموجودة
-        const result = await supabase
-          .from("system_settings")
-          .update(settingsData)
-          .eq("id", settings.id);
-        error = result.error;
-      } else {
-        // إنشاء إعدادات جديدة
-        const result = await supabase
-          .from("system_settings")
-          .insert([settingsData]);
-        error = result.error;
-      }
-
-      if (error) throw error;
-
-      toast({
-        title: "تم الحفظ",
-        description: "تم حفظ الإعدادات بنجاح",
-      });
-
-      fetchSettings();
-    } catch (error) {
-      console.error("Error saving settings:", error);
-      toast({
-        variant: "destructive",
-        title: "خطأ",
-        description: "حدث خطأ في حفظ الإعدادات",
-      });
-    } finally {
-      setIsSaving(false);
-    }
+  const handleCurrencyChange = (currencyValue: string) => {
+    const selectedCurrency = currencies.find(c => c.value === currencyValue);
+    setFormData(prev => ({
+      ...prev,
+      currency: currencyValue,
+      currency_symbol: selectedCurrency?.symbol || "د.أ"
+    }));
   };
 
   if (isLoading) {
@@ -185,30 +170,48 @@ const SystemSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="h-5 w-5" />
-                إعدادات اللغة
+                إعدادات اللغة والمنطقة
               </CardTitle>
               <CardDescription>
-                تحديد لغة واجهة النظام الافتراضية
+                تحديد لغة واجهة النظام والمنطقة الزمنية
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>لغة النظام</Label>
-                <Select 
-                  value={formData.language} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, language: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ar">العربية</SelectItem>
-                    <SelectItem value="en">English</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-gray-600">
-                  اللغة المحددة ستكون اللغة الافتراضية لجميع المستخدمين الجدد
-                </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>لغة النظام</Label>
+                  <Select 
+                    value={formData.language} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, language: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ar">العربية</SelectItem>
+                      <SelectItem value="en">English</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>المنطقة الزمنية</Label>
+                  <Select 
+                    value={formData.timezone} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, timezone: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timezones.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -217,30 +220,106 @@ const SystemSettings = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
-                إعدادات الوقت
+                إعدادات الوقت والتاريخ
               </CardTitle>
               <CardDescription>
-                تحديد نظام عرض الوقت في النظام
+                تحديد نظام عرض الوقت والتاريخ في النظام
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>نظام الوقت</Label>
+                  <Select 
+                    value={formData.time_format} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, time_format: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="24h">24 ساعة (14:30)</SelectItem>
+                      <SelectItem value="12h">12 ساعة (2:30 PM)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>تنسيق التاريخ</Label>
+                  <Select 
+                    value={formData.date_format} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, date_format: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dateFormats.map((format) => (
+                        <SelectItem key={format.value} value={format.value}>
+                          {format.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* معاينة مباشرة */}
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">معاينة التنسيق</h4>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-blue-700">الوقت الحالي: </span>
+                    <span className="font-mono">{formatDateTime(new Date())}</span>
+                  </div>
+                  <div>
+                    <span className="text-blue-700">التاريخ فقط: </span>
+                    <span className="font-mono">{formatDateTime(new Date(), false)}</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                إعدادات العملة
+              </CardTitle>
+              <CardDescription>
+                تحديد العملة المستخدمة في النظام
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>نظام الوقت</Label>
+                <Label>العملة</Label>
                 <Select 
-                  value={formData.time_format} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, time_format: value }))}
+                  value={formData.currency} 
+                  onValueChange={handleCurrencyChange}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="24h">24 ساعة (14:30)</SelectItem>
-                    <SelectItem value="12h">12 ساعة (2:30 PM)</SelectItem>
+                    {currencies.map((currency) => (
+                      <SelectItem key={currency.value} value={currency.value}>
+                        {currency.label} ({currency.symbol})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-                <p className="text-sm text-gray-600">
-                  نظام عرض الوقت المحدد سيظهر في جميع أنحاء النظام
-                </p>
+              </div>
+
+              {/* معاينة العملة */}
+              <div className="p-4 bg-green-50 rounded-lg">
+                <h4 className="font-medium text-green-900 mb-2">معاينة العملة</h4>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="text-green-700">مثال على السعر: </span>
+                    <span className="font-mono font-bold">{formatCurrency(150.75)}</span>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -311,7 +390,7 @@ const SystemSettings = () => {
               <div>
                 <Label className="text-sm font-medium">آخر تحديث للإعدادات</Label>
                 <p className="text-sm text-gray-600">
-                  {settings ? new Date(settings.updated_at).toLocaleDateString('ar-SA') : "لم يتم التحديث بعد"}
+                  {settings.id ? formatDateTime(new Date(), false) : "لم يتم التحديث بعد"}
                 </p>
               </div>
               <Separator />
@@ -324,24 +403,24 @@ const SystemSettings = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>إحصائيات سريعة</CardTitle>
+              <CardTitle>الإعدادات الحالية</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between">
-                <span className="text-sm">إجمالي المستخدمين</span>
-                <span className="text-sm font-medium">12</span>
+                <span className="text-sm">لغة النظام</span>
+                <span className="text-sm font-medium">{formData.language === 'ar' ? 'العربية' : 'English'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm">المرضى المسجلين</span>
-                <span className="text-sm font-medium">248</span>
+                <span className="text-sm">نظام الوقت</span>
+                <span className="text-sm font-medium">{formData.time_format === '24h' ? '24 ساعة' : '12 ساعة'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm">المواعيد هذا الشهر</span>
-                <span className="text-sm font-medium">156</span>
+                <span className="text-sm">المنطقة الزمنية</span>
+                <span className="text-sm font-medium">{timezones.find(tz => tz.value === formData.timezone)?.label}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm">حجم البيانات</span>
-                <span className="text-sm font-medium">2.4 GB</span>
+                <span className="text-sm">العملة</span>
+                <span className="text-sm font-medium">{formData.currency_symbol}</span>
               </div>
             </CardContent>
           </Card>

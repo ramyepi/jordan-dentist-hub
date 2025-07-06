@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +11,8 @@ import { Calendar as UICalendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import EditAppointmentDialog from "@/components/EditAppointmentDialog";
+import NewAppointmentDialog from "@/components/NewAppointmentDialog";
+import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 
 interface AppointmentWithDetails {
   id: string;
@@ -36,6 +37,9 @@ const AppointmentsCalendar = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [editAppointment, setEditAppointment] = useState<AppointmentWithDetails | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isNewAppointmentDialogOpen, setIsNewAppointmentDialogOpen] = useState(false);
+
+  const { formatDateTime, formatCurrency } = useSystemSettings();
 
   const timeSlots = [
     "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -170,7 +174,10 @@ const AppointmentsCalendar = () => {
           <h1 className="text-3xl font-bold">تقويم المواعيد</h1>
           <p className="text-muted-foreground">عرض وإدارة المواعيد الطبية</p>
         </div>
-        <Button className="medical-gradient">
+        <Button 
+          className="medical-gradient"
+          onClick={() => setIsNewAppointmentDialogOpen(true)}
+        >
           <Plus className="h-4 w-4 mr-2" />
           موعد جديد
         </Button>
@@ -215,7 +222,7 @@ const AppointmentsCalendar = () => {
                     )}
                   >
                     <Calendar className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP", { locale: ar }) : "اختر التاريخ"}
+                    {selectedDate ? formatDateTime(selectedDate, false) : "اختر التاريخ"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -243,7 +250,7 @@ const AppointmentsCalendar = () => {
             
             <div className="text-sm text-gray-600">
               {viewMode === "day" 
-                ? format(selectedDate, "EEEE، d MMMM yyyy", { locale: ar })
+                ? formatDateTime(selectedDate, false)
                 : `أسبوع ${format(startOfWeek(selectedDate), "d MMM", { locale: ar })} - ${format(endOfWeek(selectedDate), "d MMM yyyy", { locale: ar })}`
               }
             </div>
@@ -255,7 +262,7 @@ const AppointmentsCalendar = () => {
       {viewMode === "day" ? (
         <Card>
           <CardHeader>
-            <CardTitle>جدول المواعيد - {format(selectedDate, "EEEE، d MMMM yyyy", { locale: ar })}</CardTitle>
+            <CardTitle>جدول المواعيد - {formatDateTime(selectedDate, false)}</CardTitle>
             <CardDescription>
               المواعيد المجدولة لهذا اليوم ({getAppointmentsForDate(format(selectedDate, "yyyy-MM-dd")).length} موعد)
             </CardDescription>
@@ -327,6 +334,9 @@ const AppointmentsCalendar = () => {
                             {appointment.duration_minutes} دقيقة • {appointment.appointment_type === "regular" ? "عادي" : 
                              appointment.appointment_type === "emergency" ? "طارئ" : 
                              appointment.appointment_type === "consultation" ? "استشارة" : "علاج"}
+                            {appointment.total_cost && (
+                              <span> • {formatCurrency(appointment.total_cost)}</span>
+                            )}
                           </div>
                         </div>
                       )}
@@ -444,6 +454,14 @@ const AppointmentsCalendar = () => {
         }}
         appointment={editAppointment}
         onUpdate={fetchAppointments}
+      />
+
+      {/* Dialog لإضافة موعد جديد */}
+      <NewAppointmentDialog
+        isOpen={isNewAppointmentDialogOpen}
+        onClose={() => setIsNewAppointmentDialogOpen(false)}
+        onSuccess={fetchAppointments}
+        defaultDate={selectedDate}
       />
     </div>
   );
