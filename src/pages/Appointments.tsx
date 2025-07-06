@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,11 +46,23 @@ interface Appointment {
   }> | null;
 }
 
+interface NewAppointment {
+  patient_id: string;
+  doctor_id: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  appointment_type: 'regular' | 'emergency' | 'consultation' | 'treatment';
+  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
+  duration_minutes: number;
+  total_cost: number;
+  notes: string | null;
+}
+
 const Appointments = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
-  const [newAppointment, setNewAppointment] = useState<Omit<Appointment, 'id' | 'doctor_name' | 'patient_name'>>({
+  const [newAppointment, setNewAppointment] = useState<NewAppointment>({
     patient_id: '',
     doctor_id: '',
     scheduled_date: '',
@@ -59,7 +72,6 @@ const Appointments = () => {
     duration_minutes: 60,
     total_cost: 0,
     notes: null,
-    services: null,
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -73,14 +85,38 @@ const Appointments = () => {
   const fetchAppointments = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from("appointments_view")
-        .select('*')
+      
+      // Fetch appointments with patient and doctor information
+      const { data: appointmentsData, error: appointmentsError } = await supabase
+        .from("appointments")
+        .select(`
+          *,
+          patient:patients!appointments_patient_id_fkey(full_name),
+          doctor:profiles!appointments_doctor_id_fkey(full_name)
+        `)
         .order("scheduled_date", { ascending: false })
         .order("scheduled_time", { ascending: false });
 
-      if (error) throw error;
-      setAppointments(data || []);
+      if (appointmentsError) throw appointmentsError;
+
+      // Transform the data to match our Appointment interface
+      const transformedAppointments: Appointment[] = (appointmentsData || []).map(apt => ({
+        id: apt.id,
+        patient_id: apt.patient_id,
+        patient_name: apt.patient?.full_name || 'مريض غير معروف',
+        doctor_id: apt.doctor_id,
+        doctor_name: apt.doctor?.full_name || 'طبيب غير معروف',
+        scheduled_date: apt.scheduled_date,
+        scheduled_time: apt.scheduled_time,
+        appointment_type: apt.appointment_type,
+        status: apt.status,
+        duration_minutes: apt.duration_minutes,
+        total_cost: apt.total_cost,
+        notes: apt.notes,
+        services: null // We'll fetch services separately if needed
+      }));
+
+      setAppointments(transformedAppointments);
     } catch (error) {
       console.error("Error fetching appointments:", error);
       toast({
@@ -128,10 +164,18 @@ const Appointments = () => {
   };
 
   const handleNewAppointmentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setNewAppointment({
-      ...newAppointment,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setNewAppointment(prev => ({
+      ...prev,
+      [name]: name === 'duration_minutes' || name === 'total_cost' ? parseInt(value) || 0 : value,
+    }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setNewAppointment(prev => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleNewAppointmentSubmit = async (e: React.FormEvent) => {
@@ -161,7 +205,6 @@ const Appointments = () => {
         duration_minutes: 60,
         total_cost: 0,
         notes: null,
-        services: null,
       });
       fetchAppointments();
     } catch (error) {
@@ -316,11 +359,10 @@ const Appointments = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="appointment_type">نوع الموعد</Label>
+                    <Label>نوع الموعد</Label>
                     <Select
-                      name="appointment_type"
                       value={newAppointment.appointment_type}
-                      onValueChange={(value) => handleNewAppointmentChange({ target: { name: 'appointment_type', value } } as any)}
+                      onValueChange={(value) => handleSelectChange('appointment_type', value)}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -334,11 +376,10 @@ const Appointments = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="status">الحالة</Label>
+                    <Label>الحالة</Label>
                     <Select
-                      name="status"
                       value={newAppointment.status}
-                      onValueChange={(value) => handleNewAppointmentChange({ target: { name: 'status', value } } as any)}
+                      onValueChange={(value) => handleSelectChange('status', value)}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -489,32 +530,14 @@ const Appointments = () => {
                             <span className="text-sm text-gray-600">المدة:</span>
                             <span>{appointment.duration_minutes} دقيقة</span>
                           </div>
-                        </div>
 
-                        {appointment.services && appointment.services.length > 0 && (
-                          <div className="mb-4">
-                            <h4 className="font-medium mb-2 flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
-                              الخدمات المقدمة:
-                            </h4>
-                            <div className="space-y-2">
-                              {appointment.services.map((service) => (
-                                <div key={service.id} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
-                                  <span>{service.name}</span>
-                                  <div className="flex items-center gap-2">
-                                    <span>الكمية: {service.quantity}</span>
-                                    <span>السعر: {formatCurrency(service.unit_price)}</span>
-                                    <span className="font-medium">المجموع: {formatCurrency(service.total_price)}</span>
-                                  </div>
-                                </div>
-                              ))}
-                              <div className="flex justify-between items-center p-2 bg-blue-50 rounded font-medium">
-                                <span>إجمالي التكلفة:</span>
-                                <span className="text-blue-900">{formatCurrency(appointment.total_cost || 0)}</span>
-                              </div>
+                          {appointment.total_cost && appointment.total_cost > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-600">التكلفة:</span>
+                              <span className="font-medium">{formatCurrency(appointment.total_cost)}</span>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                         
                         {appointment.notes && (
                           <div className="mt-3 p-2 bg-blue-50 rounded">
