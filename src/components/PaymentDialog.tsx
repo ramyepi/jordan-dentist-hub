@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, CreditCard, Calendar, AlertCircle } from "lucide-react";
+import { CreditCard, Calendar, AlertCircle } from "lucide-react";
 
 interface PaymentDialogProps {
   isOpen: boolean;
@@ -68,7 +68,6 @@ const PaymentDialog = ({
       plans.push({
         installment_number: i,
         amount: i === installmentCount ? 
-          // للقسط الأخير، احسب المتبقي لتجنب مشاكل التقريب
           totalAmount - (monthlyAmount * (installmentCount - 1)) :
           monthlyAmount,
         due_date: dueDate.toISOString().split('T')[0]
@@ -82,7 +81,6 @@ const PaymentDialog = ({
     setInstallmentCount(count);
     if (isInstallment) {
       setPaidAmount(totalAmount / count);
-      // إعادة إنشاء خطة التقسيط
       const monthlyAmount = totalAmount / count;
       const plans: InstallmentPlan[] = [];
       
@@ -144,7 +142,7 @@ const PaymentDialog = ({
           installment_number: plan.installment_number,
           amount: plan.amount,
           due_date: plan.due_date,
-          is_paid: index === 0 // القسط الأول مدفوع
+          is_paid: index === 0
         }));
 
         const { error: installmentError } = await supabase
@@ -302,20 +300,16 @@ const PaymentDialog = ({
             <Label htmlFor="paid_amount">
               {isInstallment ? "مبلغ القسط الأول" : "المبلغ المدفوع"}
             </Label>
-            <div className="relative">
-              <DollarSign className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                id="paid_amount"
-                type="number"
-                step="0.01"
-                min="0"
-                max={isInstallment ? undefined : totalAmount}
-                value={paidAmount}
-                onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                className="pr-10"
-                placeholder="0.00"
-              />
-            </div>
+            <Input
+              id="paid_amount"
+              type="number"
+              step="0.01"
+              min="0"
+              max={isInstallment ? undefined : totalAmount}
+              value={paidAmount}
+              onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+              placeholder="0.00"
+            />
             
             {!isInstallment && paidAmount < totalAmount && (
               <div className="flex items-center gap-2 text-yellow-600">
