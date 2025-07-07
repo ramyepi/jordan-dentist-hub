@@ -1,13 +1,13 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Settings, Globe, Clock, Shield, Save, DollarSign, Calendar } from "lucide-react";
+import { Settings, Globe, Clock, Shield, Save, DollarSign, Calendar, Building } from "lucide-react";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 
 const SystemSettings = () => {
@@ -24,7 +24,8 @@ const SystemSettings = () => {
     date_format: "dd/MM/yyyy",
     currency: "JOD",
     currency_symbol: "د.أ",
-    calendar_type: "gregorian"
+    calendar_type: "gregorian",
+    clinic_name: "عيادة الأسنان الذكية"
   });
 
   const timezones = [
@@ -63,7 +64,8 @@ const SystemSettings = () => {
         date_format: settings.date_format,
         currency: settings.currency,
         currency_symbol: settings.currency_symbol,
-        calendar_type: settings.calendar_type || "gregorian"
+        calendar_type: settings.calendar_type || "gregorian",
+        clinic_name: settings.clinic_name || "عيادة الأسنان الذكية"
       });
     }
     setIsLoading(false);
@@ -154,6 +156,28 @@ const SystemSettings = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                إعدادات العيادة
+              </CardTitle>
+              <CardDescription>
+                تخصيص اسم العيادة والمعلومات الأساسية
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>اسم العيادة</Label>
+                <Input
+                  value={formData.clinic_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, clinic_name: e.target.value }))}
+                  placeholder="اسم العيادة"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -422,6 +446,10 @@ const SystemSettings = () => {
               <CardTitle>الإعدادات الحالية</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex justify-between">
+                <span className="text-sm">اسم العيادة</span>
+                <span className="text-sm font-medium">{formData.clinic_name}</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-sm">لغة النظام</span>
                 <span className="text-sm font-medium">{formData.language === 'ar' ? 'العربية' : 'English'}</span>

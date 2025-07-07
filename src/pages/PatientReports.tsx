@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
+import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import ServicesTable from "@/components/reports/ServicesTable";
 import InstallmentsTable from "@/components/reports/InstallmentsTable";
 
@@ -72,7 +74,7 @@ interface DetailedInstallment {
   due_date: string;
   paid_date: string | null;
   is_paid: boolean;
-  installment_status: string; // Changed from union type to string to match database
+  installment_status: string;
   days_overdue: number;
   appointment_date: string;
   total_payment_amount: number;
@@ -88,6 +90,7 @@ const PatientReports = () => {
   const [detailedInstallments, setDetailedInstallments] = useState<DetailedInstallment[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const navigate = useNavigate();
+  const { settings, formatCurrency } = useSystemSettings();
 
   useEffect(() => {
     fetchPatientReports();
@@ -171,10 +174,6 @@ const PatientReports = () => {
     } catch {
       return "غير صحيح";
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `${amount.toFixed(2)} د.أ`;
   };
 
   const handlePrintReport = async (patient: PatientReport) => {
@@ -353,7 +352,7 @@ const PatientReports = () => {
         <div className="hidden print:block p-8 bg-white">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">تقرير شامل للمريض</h1>
-            <p className="text-gray-600">عيادة الأسنان الذكية</p>
+            <p className="text-gray-600">{settings.clinic_name}</p>
             <p className="text-sm text-gray-500">تاريخ الطباعة: {formatDate(new Date().toISOString())}</p>
           </div>
 
@@ -500,7 +499,7 @@ const PatientReports = () => {
           )}
 
           <div className="mt-8 pt-4 border-t text-center text-sm text-gray-500">
-            <p>هذا التقرير تم إنشاؤه تلقائياً من نظام إدارة عيادة الأسنان الذكية</p>
+            <p>هذا التقرير تم إنشاؤه تلقائياً من {settings.clinic_name}</p>
           </div>
         </div>
       )}

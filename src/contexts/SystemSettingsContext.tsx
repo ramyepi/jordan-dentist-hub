@@ -12,6 +12,7 @@ interface SystemSettings {
   currency: string;
   currency_symbol: string;
   calendar_type: string;
+  clinic_name: string;
 }
 
 interface SystemSettingsContextType {
@@ -29,7 +30,8 @@ const defaultSettings: SystemSettings = {
   date_format: 'dd/MM/yyyy',
   currency: 'JOD',
   currency_symbol: 'د.أ',
-  calendar_type: 'gregorian'
+  calendar_type: 'gregorian',
+  clinic_name: 'عيادة الأسنان الذكية'
 };
 
 const SystemSettingsContext = createContext<SystemSettingsContextType | undefined>(undefined);
@@ -74,7 +76,8 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
           date_format: data.date_format || defaultSettings.date_format,
           currency: data.currency || defaultSettings.currency,
           currency_symbol: data.currency_symbol || defaultSettings.currency_symbol,
-          calendar_type: data.calendar_type || defaultSettings.calendar_type
+          calendar_type: data.calendar_type || defaultSettings.calendar_type,
+          clinic_name: data.clinic_name || defaultSettings.clinic_name
         });
       }
     } catch (error) {
@@ -104,6 +107,7 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
         currency: updatedSettings.currency,
         currency_symbol: updatedSettings.currency_symbol,
         calendar_type: updatedSettings.calendar_type,
+        clinic_name: updatedSettings.clinic_name,
         created_by: profile.id
       };
 

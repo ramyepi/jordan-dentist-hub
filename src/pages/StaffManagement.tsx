@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -5,682 +6,607 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
-import { Users, UserPlus, Edit, Trash2, Phone, Mail, Calendar, Building } from "lucide-react";
-import AdminSidebar from "@/components/AdminSidebar";
-import { useNavigate } from "react-router-dom";
-import type { User } from "@supabase/supabase-js";
+import { 
+  Users, 
+  Plus, 
+  Search, 
+  Edit, 
+  Shield, 
+  UserCheck, 
+  UserX,
+  Trash2,
+  Calendar,
+  Phone,
+  Mail,
+  DollarSign
+} from "lucide-react";
 
-interface Profile {
+interface StaffMember {
   id: string;
-  user_id: string;
   full_name: string;
-  role: 'doctor' | 'receptionist' | 'nurse' | 'admin';
+  role: 'admin' | 'doctor' | 'receptionist' | 'nurse';
   phone: string | null;
   specialization: string | null;
   employee_id: string | null;
   hire_date: string | null;
   salary: number | null;
   emergency_contact: string | null;
+  notes: string | null;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 const StaffManagement = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [filteredStaff, setFilteredStaff] = useState<StaffMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [showAddStaff, setShowAddStaff] = useState(false);
-  const navigate = useNavigate();
+  const [selectedRole, setSelectedRole] = useState<string>("all");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
 
-  // Form state for editing
   const [formData, setFormData] = useState({
     full_name: "",
-    role: "nurse" as "doctor" | "nurse" | "receptionist" | "admin",
+    role: "nurse" as StaffMember['role'],
     phone: "",
     specialization: "",
     employee_id: "",
     hire_date: "",
     salary: "",
     emergency_contact: "",
-    is_active: true
-  });
-
-  // Form state for adding new staff
-  const [newStaffData, setNewStaffData] = useState({
-    email: "",
-    password: "",
-    full_name: "",
-    role: "nurse" as "doctor" | "nurse" | "receptionist" | "admin",
-    phone: "",
-    specialization: "",
-    employee_id: "",
-    hire_date: "",
-    salary: "",
-    emergency_contact: ""
+    notes: ""
   });
 
   useEffect(() => {
-    checkUserAuth();
-    fetchStaffProfiles();
+    fetchCurrentUserProfile();
+    fetchStaff();
   }, []);
 
-  const checkUserAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      navigate("/auth");
-      return;
-    }
+  useEffect(() => {
+    filterStaff();
+  }, [staff, searchTerm, selectedRole]);
 
-    setUser(session.user);
+  const fetchCurrentUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .single();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
 
-    if (profile?.role !== 'admin') {
-      toast({
-        variant: "destructive",
-        title: "غير مخول",
-        description: "ليس لديك صلاحية للوصول لهذه الصفحة",
-      });
-      navigate("/dashboard");
-      return;
+      if (error) throw error;
+      setCurrentUserProfile(data);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
     }
   };
 
-  const fetchStaffProfiles = async () => {
+  const fetchStaff = async () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "خطأ",
-          description: "حدث خطأ في تحميل بيانات الموظفين",
-        });
-      } else {
-        setProfiles(data || []);
-      }
+      if (error) throw error;
+      setStaff(data || []);
     } catch (error) {
       console.error("Error fetching staff:", error);
+      toast({
+        variant: "destructive",
+        title: "خطأ",
+        description: "حدث خطأ في تحميل بيانات الموظفين",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getRoleInArabic = (role: string) => {
-    const roles = {
-      doctor: "طبيب",
-      receptionist: "موظف استقبال", 
-      nurse: "ممرضة",
-      admin: "مدير"
-    };
-    return roles[role as keyof typeof roles] || role;
+  const filterStaff = () => {
+    let filtered = staff;
+
+    if (searchTerm) {
+      filtered = filtered.filter(member =>
+        member.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (member.phone && member.phone.includes(searchTerm)) ||
+        (member.employee_id && member.employee_id.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    if (selectedRole !== "all") {
+      filtered = filtered.filter(member => member.role === selectedRole);
+    }
+
+    setFilteredStaff(filtered);
   };
 
-  const getRoleBadgeColor = (role: string) => {
-    const colors = {
-      doctor: "bg-blue-100 text-blue-800",
-      receptionist: "bg-green-100 text-green-800",
-      nurse: "bg-purple-100 text-purple-800", 
-      admin: "bg-red-100 text-red-800"
-    };
-    return colors[role as keyof typeof colors] || "bg-gray-100 text-gray-800";
-  };
-
-  const handleEditProfile = (profile: Profile) => {
-    setSelectedProfile(profile);
-    setFormData({
-      full_name: profile.full_name,
-      role: profile.role,
-      phone: profile.phone || "",
-      specialization: profile.specialization || "",
-      employee_id: profile.employee_id || "",
-      hire_date: profile.hire_date || "",
-      salary: profile.salary?.toString() || "",
-      emergency_contact: profile.emergency_contact || "",
-      is_active: profile.is_active
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleSaveProfile = async () => {
-    if (!selectedProfile) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!currentUserProfile || currentUserProfile.role !== 'admin') {
+      toast({
+        variant: "destructive",
+        title: "غير مسموح",
+        description: "لا يمكنك إضافة أو تعديل الموظفين",
+      });
+      return;
+    }
 
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: formData.full_name,
-          role: formData.role,
-          phone: formData.phone || null,
-          specialization: formData.specialization || null,
-          employee_id: formData.employee_id || null,
-          hire_date: formData.hire_date || null,
-          salary: formData.salary ? parseFloat(formData.salary) : null,
-          emergency_contact: formData.emergency_contact || null,
-          is_active: formData.is_active
-        })
-        .eq("id", selectedProfile.id);
+      const staffData = {
+        full_name: formData.full_name,
+        role: formData.role,
+        phone: formData.phone || null,
+        specialization: formData.specialization || null,
+        employee_id: formData.employee_id || null,
+        hire_date: formData.hire_date || null,
+        salary: formData.salary ? parseFloat(formData.salary) : null,
+        emergency_contact: formData.emergency_contact || null,
+        notes: formData.notes || null,
+      };
 
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "خطأ",
-          description: "حدث خطأ في تحديث بيانات الموظف",
-        });
-      } else {
+      if (editingStaff) {
+        const { error } = await supabase
+          .from("profiles")
+          .update(staffData)
+          .eq("id", editingStaff.id);
+
+        if (error) throw error;
+
         toast({
           title: "تم التحديث",
           description: "تم تحديث بيانات الموظف بنجاح",
         });
-        setIsDialogOpen(false);
-        fetchStaffProfiles();
-      }
-    } catch (error) {
-      console.error("Error updating profile:", error);
-    }
-  };
-
-  const toggleUserStatus = async (profile: Profile) => {
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ is_active: !profile.is_active })
-        .eq("id", profile.id);
-
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "خطأ",
-          description: "حدث خطأ في تحديث حالة الموظف",
-        });
       } else {
-        toast({
-          title: "تم التحديث",
-          description: `تم ${profile.is_active ? 'إلغاء تفعيل' : 'تفعيل'} الموظف بنجاح`,
-        });
-        fetchStaffProfiles();
-      }
-    } catch (error) {
-      console.error("Error toggling user status:", error);
-    }
-  };
+        const { error } = await supabase
+          .from("profiles")
+          .insert([staffData]);
 
-  const handleAddStaff = async () => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: newStaffData.email,
-        password: newStaffData.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-          data: {
-            full_name: newStaffData.full_name,
-            role: newStaffData.role,
-            phone: newStaffData.phone,
-            specialization: newStaffData.role === 'doctor' ? newStaffData.specialization : null
-          }
-        }
-      });
-
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "خطأ في إضافة الموظف",
-          description: error.message,
-        });
-      } else {
-        // Update the profile with additional admin data
-        if (data.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({ 
-              employee_id: newStaffData.employee_id || null,
-              hire_date: newStaffData.hire_date || null,
-              salary: newStaffData.salary ? parseFloat(newStaffData.salary) : null,
-              emergency_contact: newStaffData.emergency_contact || null
-            })
-            .eq('user_id', data.user.id);
-
-          if (profileError) {
-            console.error('Profile update error:', profileError);
-          }
-        }
+        if (error) throw error;
 
         toast({
-          title: "تم إضافة الموظف",
+          title: "تم الإضافة",
           description: "تم إضافة الموظف الجديد بنجاح",
         });
-        setShowAddStaff(false);
-        setNewStaffData({
-          email: "",
-          password: "",
-          full_name: "",
-          role: "nurse",
-          phone: "",
-          specialization: "",
-          employee_id: "",
-          hire_date: "",
-          salary: "",
-          emergency_contact: ""
-        });
-        fetchStaffProfiles();
       }
+
+      resetForm();
+      setIsDialogOpen(false);
+      fetchStaff();
     } catch (error) {
+      console.error("Error saving staff:", error);
       toast({
         variant: "destructive",
         title: "خطأ",
-        description: "حدث خطأ أثناء إضافة الموظف",
+        description: "حدث خطأ في حفظ بيانات الموظف",
       });
     }
   };
 
-  const filteredProfiles = profiles.filter(profile => {
-    const matchesSearch = profile.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         profile.employee_id?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === "all" || profile.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+  const handleEdit = (staffMember: StaffMember) => {
+    setEditingStaff(staffMember);
+    setFormData({
+      full_name: staffMember.full_name,
+      role: staffMember.role,
+      phone: staffMember.phone || "",
+      specialization: staffMember.specialization || "",
+      employee_id: staffMember.employee_id || "",
+      hire_date: staffMember.hire_date || "",
+      salary: staffMember.salary?.toString() || "",
+      emergency_contact: staffMember.emergency_contact || "",
+      notes: staffMember.notes || ""
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDelete = async (staffMember: StaffMember) => {
+    if (!currentUserProfile || currentUserProfile.role !== 'admin') {
+      toast({
+        variant: "destructive",
+        title: "غير مسموح",
+        description: "لا يمكنك حذف الموظفين",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", staffMember.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "تم الحذف",
+        description: "تم حذف الموظف بنجاح",
+      });
+
+      fetchStaff();
+    } catch (error) {
+      console.error("Error deleting staff:", error);
+      toast({
+        variant: "destructive",
+        title: "خطأ",
+        description: "حدث خطأ في حذف الموظف",
+      });
+    }
+  };
+
+  const toggleStaffStatus = async (staffMember: StaffMember) => {
+    if (!currentUserProfile || currentUserProfile.role !== 'admin') {
+      toast({
+        variant: "destructive",
+        title: "غير مسموح",
+        description: "لا يمكنك تعديل حالة الموظفين",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_active: !staffMember.is_active })
+        .eq("id", staffMember.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "تم التحديث",
+        description: `تم ${staffMember.is_active ? 'إلغاء تفعيل' : 'تفعيل'} الموظف بنجاح`,
+      });
+
+      fetchStaff();
+    } catch (error) {
+      console.error("Error toggling staff status:", error);
+      toast({
+        variant: "destructive",
+        title: "خطأ",
+        description: "حدث خطأ في تحديث حالة الموظف",
+      });
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      full_name: "",
+      role: "nurse",
+      phone: "",
+      specialization: "",
+      employee_id: "",
+      hire_date: "",
+      salary: "",
+      emergency_contact: "",
+      notes: ""
+    });
+    setEditingStaff(null);
+  };
+
+  const getRoleBadge = (role: string) => {
+    const roleConfig = {
+      admin: { label: "مدير", color: "bg-red-100 text-red-800" },
+      doctor: { label: "طبيب", color: "bg-green-100 text-green-800" },
+      receptionist: { label: "استقبال", color: "bg-blue-100 text-blue-800" },
+      nurse: { label: "ممرض", color: "bg-purple-100 text-purple-800" }
+    };
+
+    const config = roleConfig[role as keyof typeof roleConfig] || { label: role, color: "bg-gray-100 text-gray-800" };
+    return <Badge className={config.color}>{config.label}</Badge>;
+  };
 
   if (isLoading) {
     return (
-      <div className="flex h-screen">
-        <AdminSidebar />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Users className="h-12 w-12 mx-auto mb-4 text-blue-600 animate-pulse" />
-            <p className="text-lg font-medium">جاري تحميل بيانات الموظفين...</p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Users className="h-12 w-12 mx-auto mb-4 text-blue-600 animate-pulse" />
+          <p className="text-lg font-medium">جاري تحميل بيانات الموظفين...</p>
         </div>
       </div>
     );
   }
 
+  if (!currentUserProfile || currentUserProfile.role !== 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <Card className="max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <Shield className="h-12 w-12 mx-auto text-red-500 mb-4" />
+            <h2 className="text-xl font-semibold mb-2">غير مسموح</h2>
+            <p className="text-gray-600">
+              هذه الصفحة مخصصة للمدير فقط. يرجى التواصل مع الإدارة للحصول على الصلاحيات المناسبة.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-gray-50">
-      <AdminSidebar />
-      
-      <div className="flex-1 overflow-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
+      {/* Header */}
+      <header className="bg-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center gap-3">
+              <Users className="h-6 w-6 text-blue-600" />
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">إدارة الموظفين</h1>
-                <p className="text-gray-600">إدارة وتحديث بيانات موظفي العيادة</p>
+                <h1 className="text-xl font-bold text-gray-900">إدارة الموظفين</h1>
+                <p className="text-sm text-gray-600">({filteredStaff.length} موظف)</p>
               </div>
-              <Button onClick={() => setShowAddStaff(true)} className="flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
-                إضافة موظف جديد
-              </Button>
             </div>
+            
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetForm} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  إضافة موظف جديد
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingStaff ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {editingStaff ? "قم بتعديل بيانات الموظف أدناه" : "أدخل بيانات الموظف الجديد أدناه"}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="full_name">الاسم الكامل *</Label>
+                      <Input
+                        id="full_name"
+                        value={formData.full_name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="role">المنصب *</Label>
+                      <Select value={formData.role} onValueChange={(value: StaffMember['role']) => setFormData(prev => ({ ...prev, role: value }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">مدير</SelectItem>
+                          <SelectItem value="doctor">طبيب</SelectItem>
+                          <SelectItem value="receptionist">موظف استقبال</SelectItem>
+                          <SelectItem value="nurse">ممرض</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">رقم الهاتف</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={formData.phone}
+                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="employee_id">رقم الموظف</Label>
+                      <Input
+                        id="employee_id"
+                        value={formData.employee_id}
+                        onChange={(e) => setFormData(prev => ({ ...prev, employee_id: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="specialization">التخصص</Label>
+                      <Input
+                        id="specialization"
+                        value={formData.specialization}
+                        onChange={(e) => setFormData(prev => ({ ...prev, specialization: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="hire_date">تاريخ التوظيف</Label>
+                      <Input
+                        id="hire_date"
+                        type="date"
+                        value={formData.hire_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, hire_date: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="salary">الراتب</Label>
+                      <Input
+                        id="salary"
+                        type="number"
+                        step="0.01"
+                        value={formData.salary}
+                        onChange={(e) => setFormData(prev => ({ ...prev, salary: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="emergency_contact">جهة اتصال الطوارئ</Label>
+                      <Input
+                        id="emergency_contact"
+                        value={formData.emergency_contact}
+                        onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="notes">ملاحظات</Label>
+                      <Textarea
+                        id="notes"
+                        value={formData.notes}
+                        onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      إلغاء
+                    </Button>
+                    <Button type="submit">
+                      {editingStaff ? "تحديث" : "إضافة"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           </div>
+        </div>
+      </header>
 
-          {/* Filters and Search */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                البحث والفلترة
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-4 flex-wrap">
-                <div className="flex-1 min-w-[200px]">
-                  <Input
-                    placeholder="البحث بالاسم أو رقم الموظف..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Filters */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="البحث عن موظف..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pr-10"
+            />
+          </div>
+          <Select value={selectedRole} onValueChange={setSelectedRole}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">جميع المناصب</SelectItem>
+              <SelectItem value="admin">مدير</SelectItem>
+              <SelectItem value="doctor">طبيب</SelectItem>
+              <SelectItem value="receptionist">موظف استقبال</SelectItem>
+              <SelectItem value="nurse">ممرض</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Staff Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredStaff.map((staffMember) => (
+            <Card key={staffMember.id} className="shadow-medical hover:shadow-elevated transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg font-semibold">
+                      {staffMember.full_name}
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-2 mt-1">
+                      {getRoleBadge(staffMember.role)}
+                      <Badge variant={staffMember.is_active ? "default" : "secondary"}>
+                        {staffMember.is_active ? "نشط" : "غير نشط"}
+                      </Badge>
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(staffMember)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleStaffStatus(staffMember)}
+                    >
+                      {staffMember.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            هل أنت متأكد من حذف الموظف "{staffMember.full_name}"؟ هذا الإجراء لا يمكن التراجع عنه.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDelete(staffMember)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            حذف
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="فلترة حسب الوظيفة" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">جميع الوظائف</SelectItem>
-                    <SelectItem value="doctor">طبيب</SelectItem>
-                    <SelectItem value="nurse">ممرضة</SelectItem>
-                    <SelectItem value="receptionist">موظف استقبال</SelectItem>
-                    <SelectItem value="admin">مدير</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Staff List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProfiles.map((profile) => (
-              <Card key={profile.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{profile.full_name}</CardTitle>
-                      <CardDescription className="flex items-center gap-2 mt-1">
-                        <Badge className={getRoleBadgeColor(profile.role)}>
-                          {getRoleInArabic(profile.role)}
-                        </Badge>
-                        <Badge variant={profile.is_active ? "default" : "secondary"}>
-                          {profile.is_active ? "نشط" : "غير نشط"}
-                        </Badge>
-                      </CardDescription>
-                    </div>
+              </CardHeader>
+              
+              <CardContent className="space-y-3">
+                {staffMember.phone && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-gray-500" />
+                    <span>{staffMember.phone}</span>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {profile.employee_id && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Building className="h-4 w-4" />
-                      <span>رقم الموظف: {profile.employee_id}</span>
-                    </div>
-                  )}
-                  {profile.phone && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Phone className="h-4 w-4" />
-                      <span>{profile.phone}</span>
-                    </div>
-                  )}
-                  {profile.specialization && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <UserPlus className="h-4 w-4" />
-                      <span>التخصص: {profile.specialization}</span>
-                    </div>
-                  )}
-                  {profile.hire_date && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="h-4 w-4" />
-                      <span>تاريخ التوظيف: {new Date(profile.hire_date).toLocaleDateString('ar-SA')}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-2 pt-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEditProfile(profile)}
-                      className="flex-1"
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      تعديل
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={profile.is_active ? "destructive" : "default"}
-                      onClick={() => toggleUserStatus(profile)}
-                    >
-                      {profile.is_active ? "إلغاء تفعيل" : "تفعيل"}
-                    </Button>
+                )}
+                
+                {staffMember.employee_id && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Badge variant="outline">رقم الموظف: {staffMember.employee_id}</Badge>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                )}
+                
+                {staffMember.specialization && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span>التخصص: {staffMember.specialization}</span>
+                  </div>
+                )}
+                
+                {staffMember.hire_date && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Calendar className="h-4 w-4" />
+                    <span>تاريخ التوظيف: {new Date(staffMember.hire_date).toLocaleDateString('ar-EG')}</span>
+                  </div>
+                )}
+                
+                {staffMember.salary && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <DollarSign className="h-4 w-4" />
+                    <span>الراتب: {staffMember.salary.toFixed(2)} د.أ</span>
+                  </div>
+                )}
 
-          {filteredProfiles.length === 0 && (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Users className="h-12 w-12 text-gray-400 mb-4" />
-                <p className="text-lg font-medium text-gray-900 mb-2">لا توجد نتائج</p>
-                <p className="text-gray-600">لم يتم العثور على موظفين يطابقون البحث</p>
+                {staffMember.notes && (
+                  <>
+                    <Separator />
+                    <div className="text-sm text-gray-600">
+                      <strong>ملاحظات:</strong> {staffMember.notes}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
-          )}
-
-          {/* Edit Profile Dialog */}
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>تعديل بيانات الموظف</DialogTitle>
-                <DialogDescription>
-                  تحديث معلومات {selectedProfile?.full_name}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">الاسم الكامل</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="role">الوظيفة</Label>
-                  <Select value={formData.role} onValueChange={(value: any) => setFormData({...formData, role: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="doctor">طبيب</SelectItem>
-                      <SelectItem value="nurse">ممرضة</SelectItem>
-                      <SelectItem value="receptionist">موظف استقبال</SelectItem>
-                      <SelectItem value="admin">مدير</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="phone">رقم الهاتف</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="employee_id">رقم الموظف</Label>
-                  <Input
-                    id="employee_id"
-                    value={formData.employee_id}
-                    onChange={(e) => setFormData({...formData, employee_id: e.target.value})}
-                  />
-                </div>
-                
-                {formData.role === 'doctor' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="specialization">التخصص</Label>
-                    <Input
-                      id="specialization"
-                      value={formData.specialization}
-                      onChange={(e) => setFormData({...formData, specialization: e.target.value})}
-                    />
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  <Label htmlFor="hire_date">تاريخ التوظيف</Label>
-                  <Input
-                    id="hire_date"
-                    type="date"
-                    value={formData.hire_date}
-                    onChange={(e) => setFormData({...formData, hire_date: e.target.value})}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="salary">الراتب (د.أ)</Label>
-                  <Input
-                    id="salary"
-                    type="number"
-                    value={formData.salary}
-                    onChange={(e) => setFormData({...formData, salary: e.target.value})}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="emergency_contact">جهة الاتصال للطوارئ</Label>
-                  <Input
-                    id="emergency_contact"
-                    value={formData.emergency_contact}
-                    onChange={(e) => setFormData({...formData, emergency_contact: e.target.value})}
-                  />
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  إلغاء
-                </Button>
-                <Button onClick={handleSaveProfile}>
-                  حفظ التغييرات
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Add Staff Dialog */}
-          <Dialog open={showAddStaff} onOpenChange={setShowAddStaff}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>إضافة موظف جديد</DialogTitle>
-                <DialogDescription>
-                  إنشاء حساب موظف جديد وتعيين البيانات الأساسية
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new_email">البريد الإلكتروني</Label>
-                  <Input
-                    id="new_email"
-                    type="email"
-                    value={newStaffData.email}
-                    onChange={(e) => setNewStaffData({...newStaffData, email: e.target.value})}
-                    placeholder="البريد الإلكتروني للموظف"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new_password">كلمة المرور</Label>
-                  <Input
-                    id="new_password"
-                    type="password"
-                    value={newStaffData.password}
-                    onChange={(e) => setNewStaffData({...newStaffData, password: e.target.value})}
-                    placeholder="كلمة مرور قوية"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new_full_name">الاسم الكامل</Label>
-                  <Input
-                    id="new_full_name"
-                    value={newStaffData.full_name}
-                    onChange={(e) => setNewStaffData({...newStaffData, full_name: e.target.value})}
-                    placeholder="الاسم الكامل"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new_role">الوظيفة</Label>
-                  <Select value={newStaffData.role} onValueChange={(value: any) => setNewStaffData({...newStaffData, role: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="doctor">طبيب</SelectItem>
-                      <SelectItem value="nurse">ممرضة</SelectItem>
-                      <SelectItem value="receptionist">موظف استقبال</SelectItem>
-                      <SelectItem value="admin">مدير</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new_phone">رقم الهاتف</Label>
-                  <Input
-                    id="new_phone"
-                    value={newStaffData.phone}
-                    onChange={(e) => setNewStaffData({...newStaffData, phone: e.target.value})}
-                    placeholder="رقم الهاتف"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new_employee_id">رقم الموظف</Label>
-                  <Input
-                    id="new_employee_id"
-                    value={newStaffData.employee_id}
-                    onChange={(e) => setNewStaffData({...newStaffData, employee_id: e.target.value})}
-                    placeholder="رقم الموظف"
-                  />
-                </div>
-                
-                {newStaffData.role === 'doctor' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="new_specialization">التخصص</Label>
-                    <Input
-                      id="new_specialization"
-                      value={newStaffData.specialization}
-                      onChange={(e) => setNewStaffData({...newStaffData, specialization: e.target.value})}
-                      placeholder="التخصص الطبي"
-                    />
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new_hire_date">تاريخ التوظيف</Label>
-                  <Input
-                    id="new_hire_date"
-                    type="date"
-                    value={newStaffData.hire_date}
-                    onChange={(e) => setNewStaffData({...newStaffData, hire_date: e.target.value})}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new_salary">الراتب (د.أ)</Label>
-                  <Input
-                    id="new_salary"
-                    type="number"
-                    value={newStaffData.salary}
-                    onChange={(e) => setNewStaffData({...newStaffData, salary: e.target.value})}
-                    placeholder="الراتب الشهري"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="new_emergency_contact">جهة الاتصال للطوارئ</Label>
-                  <Input
-                    id="new_emergency_contact"
-                    value={newStaffData.emergency_contact}
-                    onChange={(e) => setNewStaffData({...newStaffData, emergency_contact: e.target.value})}
-                    placeholder="رقم الطوارئ"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-2 pt-4">
-                <Button variant="outline" onClick={() => setShowAddStaff(false)}>
-                  إلغاء
-                </Button>
-                <Button onClick={handleAddStaff}>
-                  إضافة الموظف
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+          ))}
         </div>
-      </div>
+
+        {/* Empty State */}
+        {filteredStaff.length === 0 && (
+          <div className="text-center py-12">
+            <Users className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {searchTerm || selectedRole !== "all" ? "لم يتم العثور على موظفين" : "لا توجد موظفين"}
+            </h3>
+            <p className="text-gray-600">
+              {searchTerm || selectedRole !== "all" ? "جرب تغيير معايير البحث" : "ابدأ بإضافة أول موظف"}
+            </p>
+          </div>
+        )}
+      </main>
     </div>
   );
 };
