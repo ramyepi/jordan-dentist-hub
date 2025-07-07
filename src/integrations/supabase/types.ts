@@ -17,6 +17,7 @@ export type Database = {
           notes: string | null
           quantity: number
           service_id: string
+          service_notes: string | null
           total_price: number
           unit_price: number
         }
@@ -27,6 +28,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           service_id: string
+          service_notes?: string | null
           total_price: number
           unit_price: number
         }
@@ -37,6 +39,7 @@ export type Database = {
           notes?: string | null
           quantity?: number
           service_id?: string
+          service_notes?: string | null
           total_price?: number
           unit_price?: number
         }
@@ -61,14 +64,18 @@ export type Database = {
         Row: {
           appointment_type: Database["public"]["Enums"]["appointment_type"]
           created_at: string
+          discount_amount: number | null
+          discount_percentage: number | null
           doctor_id: string | null
           duration_minutes: number
+          final_total: number | null
           id: string
           notes: string | null
           patient_id: string
           scheduled_date: string
           scheduled_time: string
           status: Database["public"]["Enums"]["appointment_status"]
+          subtotal: number | null
           total_cost: number | null
           treatment_plan: string | null
           updated_at: string
@@ -76,14 +83,18 @@ export type Database = {
         Insert: {
           appointment_type?: Database["public"]["Enums"]["appointment_type"]
           created_at?: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
           doctor_id?: string | null
           duration_minutes?: number
+          final_total?: number | null
           id?: string
           notes?: string | null
           patient_id: string
           scheduled_date: string
           scheduled_time: string
           status?: Database["public"]["Enums"]["appointment_status"]
+          subtotal?: number | null
           total_cost?: number | null
           treatment_plan?: string | null
           updated_at?: string
@@ -91,14 +102,18 @@ export type Database = {
         Update: {
           appointment_type?: Database["public"]["Enums"]["appointment_type"]
           created_at?: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
           doctor_id?: string | null
           duration_minutes?: number
+          final_total?: number | null
           id?: string
           notes?: string | null
           patient_id?: string
           scheduled_date?: string
           scheduled_time?: string
           status?: Database["public"]["Enums"]["appointment_status"]
+          subtotal?: number | null
           total_cost?: number | null
           treatment_plan?: string | null
           updated_at?: string
@@ -661,6 +676,10 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      recalculate_appointment_total: {
+        Args: { appointment_id_param: string }
+        Returns: undefined
       }
     }
     Enums: {

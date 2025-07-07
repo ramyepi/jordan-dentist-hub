@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
 import PaymentDialog from "@/components/PaymentDialog";
+import ServiceManagementDialog from "@/components/ServiceManagementDialog";
 import { 
   User, 
   Phone, 
@@ -19,7 +20,9 @@ import {
   Stethoscope,
   Clock,
   CreditCard,
-  AlertTriangle
+  AlertTriangle,
+  Settings,
+  Percent
 } from "lucide-react";
 
 interface Patient {
@@ -61,6 +64,8 @@ interface Appointment {
     quantity: number;
     unit_price: number;
     total_price: number;
+    service_notes: string | null;
+    category: string;
   }>;
 }
 
@@ -83,19 +88,41 @@ const PatientProfile = () => {
   const [financialSummary, setFinancialSummary] = useState<PatientFinancialSummary | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [userRole, setUserRole] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isServiceManagementOpen, setIsServiceManagementOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
     console.log("PatientProfile mounted with ID:", id);
     if (id) {
       fetchPatientData();
+      fetchUserRole();
     } else {
       console.error("No patient ID provided");
       setIsLoading(false);
     }
   }, [id]);
+
+  const fetchUserRole = async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("user_id", userData.user.id)
+          .single();
+        
+        if (profileData) {
+          setUserRole(profileData.role);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching user role:", error);
+    }
+  };
 
   const fetchPatientData = async () => {
     if (!id) {
@@ -143,7 +170,7 @@ const PatientProfile = () => {
         setFinancialSummary(summaryData);
       }
 
-      // جلب المواعيد مع تفاصيل الطبيب والخدمات
+      // جلب المواعيد مع تفاصيل الطبيب والخدمات والحقول الجديدة
       const { data: appointmentsData, error: appointmentsError } = await supabase
         .from("appointments")
         .select(`
@@ -154,7 +181,8 @@ const PatientProfile = () => {
             quantity,
             unit_price,
             total_price,
-            treatment_services(name)
+            service_notes,
+            treatment_services(name, category)
           )
         `)
         .eq("patient_id", id)
@@ -171,7 +199,9 @@ const PatientProfile = () => {
             service_name: service.treatment_services?.name || 'خدمة غير محددة',
             quantity: service.quantity,
             unit_price: service.unit_price,
-            total_price: service.total_price
+            total_price: service.total_price,
+            service_notes: service.service_notes,
+            category: service.treatment_services?.category
           })) || []
         })) || [];
         
@@ -218,9 +248,21 @@ const PatientProfile = () => {
     setIsPaymentDialogOpen(true);
   };
 
+  const handleManageServices = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setIsServiceManagementOpen(true);
+  };
+
   const handlePaymentComplete = () => {
     fetchPatientData();
   };
+
+  const handleServicesUpdated = () => {
+    fetchPatientData();
+  };
+
+  // تحديد الصلاحيات بناءً على دور المستخدم
+  const canManageServices = ['admin', 'doctor', 'nurse'].includes(userRole);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -469,8 +511,8 @@ const PatientProfile = () => {
                 ) : (
                   <div className="space-y-4">
                     {appointments.map((appointment) => {
-                      const paymentStatus = getAppointmentPaymentStatus(appointment.id, appointment.total_cost || 0);
-                      const needsPayment = paymentStatus !== "paid" && appointment.total_cost && appointment.total_cost > 0;
+                      const paymentStatus = getAppointmentPaymentStatus(appointment.id, appointment.final_total || appointment.total_cost || 0);
+                      const needsPayment = paymentStatus !== "paid" && (appointment.final_total || appointment.total_cost) && (appointment.final_total || appointment.total_cost) > 0;
                       
                       return (
                         <div key={appointment.id} className="border rounded-lg p-4 bg-white">
@@ -490,18 +532,44 @@ const PatientProfile = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="text-left">
-                                <p className="font-bold text-lg">{formatCurrency(appointment.total_cost || 0)}</p>
+                                {appointment.subtotal !== appointment.final_total && appointment.discount_percentage > 0 && (
+                                  <div className="flex items-center gap-1 text-sm text-orange-600">
+                                    <Percent className="h-3 w-3" />
+                                    <span>خصم {appointment.discount_percentage}%</span>
+                                  </div>
+                                )}
+                                {appointment.subtotal && appointment.subtotal > 0 && appointment.subtotal !== appointment.final_total && (
+                                  <p className="text-sm text-gray-500 line-through">
+                                    {formatCurrency(appointment.subtotal)}
+                                  </p>
+                                )}
+                                <p className="font-bold text-lg">
+                                  {formatCurrency(appointment.final_total || appointment.total_cost || 0)}
+                                </p>
                               </div>
-                              {needsPayment && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handlePayment(appointment)}
-                                  className="gap-1 medical-gradient"
-                                >
-                                  <CreditCard className="h-3 w-3" />
-                                  دفع
-                                </Button>
-                              )}
+                              <div className="flex flex-col gap-1">
+                                {canManageServices && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleManageServices(appointment)}
+                                    variant="outline"
+                                    className="gap-1"
+                                  >
+                                    <Settings className="h-3 w-3" />
+                                    إدارة الخدمات
+                                  </Button>
+                                )}
+                                {needsPayment && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handlePayment(appointment)}
+                                    className="gap-1 medical-gradient"
+                                  >
+                                    <CreditCard className="h-3 w-3" />
+                                    دفع
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </div>
                           
@@ -517,17 +585,63 @@ const PatientProfile = () => {
                           
                           {appointment.services.length > 0 && (
                             <div>
-                              <h4 className="font-medium mb-2">الخدمات المقدمة:</h4>
+                              <h4 className="font-medium mb-2 flex items-center gap-2">
+                                <Stethoscope className="h-4 w-4 text-green-600" />
+                                الخدمات المقدمة:
+                              </h4>
                               <div className="space-y-1">
                                 {appointment.services.map((service) => (
                                   <div key={service.id} className="flex justify-between text-sm p-2 bg-gray-50 rounded">
-                                    <span>{service.service_name}</span>
-                                    <span>
-                                      {service.quantity} × {formatCurrency(service.unit_price)} = {formatCurrency(service.total_price)}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span>{service.service_name}</span>
+                                      {service.category && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {service.category}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="text-left">
+                                      <span>
+                                        {service.quantity} × {formatCurrency(service.unit_price)} = {formatCurrency(service.total_price)}
+                                      </span>
+                                      {service.service_notes && (
+                                        <div className="text-xs text-gray-600 mt-1">
+                                          ملاحظات: {service.service_notes}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
+                              
+                              {/* عرض ملخص المبالغ إذا كان هناك خصم */}
+                              {(appointment.discount_percentage > 0 || appointment.discount_amount > 0) && (
+                                <div className="mt-3 p-3 bg-blue-50 rounded border-l-4 border-l-blue-500">
+                                  <div className="text-sm space-y-1">
+                                    <div className="flex justify-between">
+                                      <span>المجموع الفرعي:</span>
+                                      <span>{formatCurrency(appointment.subtotal || 0)}</span>
+                                    </div>
+                                    {appointment.discount_percentage > 0 && (
+                                      <div className="flex justify-between text-orange-600">
+                                        <span>خصم ({appointment.discount_percentage}%):</span>
+                                        <span>-{formatCurrency(appointment.discount_amount || 0)}</span>
+                                      </div>
+                                    )}
+                                    {appointment.discount_amount > 0 && appointment.discount_percentage === 0 && (
+                                      <div className="flex justify-between text-orange-600">
+                                        <span>خصم ثابت:</span>
+                                        <span>-{formatCurrency(appointment.discount_amount || 0)}</span>
+                                      </div>
+                                    )}
+                                    <Separator />
+                                    <div className="flex justify-between font-bold">
+                                      <span>المجموع النهائي:</span>
+                                      <span className="text-green-600">{formatCurrency(appointment.final_total || 0)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                           
@@ -621,9 +735,23 @@ const PatientProfile = () => {
           }}
           appointmentId={selectedAppointment.id}
           patientId={patient.id}
-          totalAmount={selectedAppointment.total_cost || 0}
+          totalAmount={selectedAppointment.final_total || selectedAppointment.total_cost || 0}
           patientName={patient.full_name}
           onPaymentComplete={handlePaymentComplete}
+        />
+      )}
+
+      {/* Service Management Dialog */}
+      {selectedAppointment && (
+        <ServiceManagementDialog
+          isOpen={isServiceManagementOpen}
+          onClose={() => {
+            setIsServiceManagementOpen(false);
+            setSelectedAppointment(null);
+          }}
+          appointmentId={selectedAppointment.id}
+          onServicesUpdated={handleServicesUpdated}
+          userRole={userRole}
         />
       )}
     </div>
