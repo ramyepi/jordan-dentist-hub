@@ -23,6 +23,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
+import ServicesTable from "@/components/reports/ServicesTable";
+import InstallmentsTable from "@/components/reports/InstallmentsTable";
 
 interface PatientReport {
   id: string;
@@ -49,12 +51,43 @@ interface PatientReport {
   pending_installments_amount: number;
 }
 
+interface DetailedService {
+  appointment_id: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  appointment_status: string;
+  service_name: string;
+  service_description: string | null;
+  service_category: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  service_notes: string | null;
+  appointment_service_notes: string | null;
+}
+
+interface DetailedInstallment {
+  installment_id: string;
+  installment_number: number;
+  installment_amount: number;
+  due_date: string;
+  paid_date: string | null;
+  is_paid: boolean;
+  installment_status: 'paid' | 'pending' | 'overdue';
+  days_overdue: number;
+  appointment_date: string;
+  total_payment_amount: number;
+}
+
 const PatientReports = () => {
   const [patients, setPatients] = useState<PatientReport[]>([]);
   const [filteredPatients, setFilteredPatients] = useState<PatientReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<PatientReport | null>(null);
+  const [detailedServices, setDetailedServices] = useState<DetailedService[]>([]);
+  const [detailedInstallments, setDetailedInstallments] = useState<DetailedInstallment[]>([]);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -97,6 +130,41 @@ const PatientReports = () => {
     }
   };
 
+  const fetchPatientDetails = async (patientId: string) => {
+    setIsLoadingDetails(true);
+    try {
+      // جلب الخدمات التفصيلية
+      const { data: servicesData, error: servicesError } = await supabase
+        .from("patient_detailed_services")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("scheduled_date", { ascending: false });
+
+      if (servicesError) {
+        console.error("Error fetching detailed services:", servicesError);
+      } else {
+        setDetailedServices(servicesData || []);
+      }
+
+      // جلب الأقساط التفصيلية
+      const { data: installmentsData, error: installmentsError } = await supabase
+        .from("patient_detailed_installments")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("due_date", { ascending: true });
+
+      if (installmentsError) {
+        console.error("Error fetching detailed installments:", installmentsError);
+      } else {
+        setDetailedInstallments(installmentsData || []);
+      }
+    } catch (error) {
+      console.error("Error fetching patient details:", error);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "غير محدد";
     try {
@@ -110,11 +178,12 @@ const PatientReports = () => {
     return `${amount.toFixed(2)} د.أ`;
   };
 
-  const handlePrintReport = (patient: PatientReport) => {
+  const handlePrintReport = async (patient: PatientReport) => {
     setSelectedPatient(patient);
+    await fetchPatientDetails(patient.id);
     setTimeout(() => {
       window.print();
-    }, 100);
+    }, 500);
   };
 
   if (isLoading) {
@@ -289,7 +358,7 @@ const PatientReports = () => {
             <p className="text-sm text-gray-500">تاريخ الطباعة: {formatDate(new Date().toISOString())}</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* Personal Information */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">المعلومات الشخصية</h2>
@@ -323,14 +392,14 @@ const PatientReports = () => {
 
           {/* Treatment Plans */}
           {selectedPatient.treatment_plans && (
-            <div className="mt-8">
+            <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">الخطط العلاجية</h2>
               <p className="text-gray-700">{selectedPatient.treatment_plans}</p>
             </div>
           )}
 
           {/* Appointments Summary */}
-          <div className="mt-8">
+          <div className="mb-8">
             <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">ملخص المواعيد</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-gray-50 rounded">
@@ -353,7 +422,7 @@ const PatientReports = () => {
           </div>
 
           {/* Financial Summary */}
-          <div className="mt-8">
+          <div className="mb-8">
             <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">الملخص المالي</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-green-50 p-4 rounded-lg">
@@ -377,9 +446,35 @@ const PatientReports = () => {
             </div>
           </div>
 
-          {/* Installments */}
+          {/* Detailed Services */}
+          {isLoadingDetails ? (
+            <div className="mb-8 text-center py-8">
+              <p>جاري تحميل التفاصيل...</p>
+            </div>
+          ) : (
+            <div className="mb-8">
+              <ServicesTable 
+                services={detailedServices} 
+                patientName={selectedPatient.full_name}
+                isPrint={true}
+              />
+            </div>
+          )}
+
+          {/* Detailed Installments */}
+          {!isLoadingDetails && (
+            <div className="mb-8">
+              <InstallmentsTable 
+                installments={detailedInstallments}
+                patientName={selectedPatient.full_name}
+                isPrint={true}
+              />
+            </div>
+          )}
+
+          {/* Installments Summary (Legacy) */}
           {selectedPatient.total_installments > 0 && (
-            <div className="mt-8">
+            <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">معلومات الأقساط</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-gray-50 rounded">
@@ -428,6 +523,18 @@ const PatientReports = () => {
           }
           .print\\:hidden {
             display: none !important;
+          }
+          .print\\:shadow-none {
+            box-shadow: none !important;
+          }
+          .print\\:break-inside-avoid {
+            break-inside: avoid;
+          }
+          table {
+            break-inside: avoid;
+          }
+          tr {
+            break-inside: avoid;
           }
         }
       `}</style>

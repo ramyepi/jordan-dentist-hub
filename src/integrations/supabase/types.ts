@@ -52,6 +52,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "appointment_services_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_installments"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_services_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_services"
+            referencedColumns: ["appointment_id"]
+          },
+          {
             foreignKeyName: "appointment_services_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
@@ -132,6 +146,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "patient_comprehensive_report"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_installments"
+            referencedColumns: ["patient_id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_services"
+            referencedColumns: ["patient_id"]
           },
           {
             foreignKeyName: "appointments_patient_id_fkey"
@@ -326,6 +354,13 @@ export type Database = {
             foreignKeyName: "installment_plans_payment_id_fkey"
             columns: ["payment_id"]
             isOneToOne: false
+            referencedRelation: "patient_detailed_installments"
+            referencedColumns: ["payment_id"]
+          },
+          {
+            foreignKeyName: "installment_plans_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
             referencedRelation: "payments"
             referencedColumns: ["id"]
           },
@@ -380,6 +415,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "medical_records_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_installments"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "medical_records_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_services"
+            referencedColumns: ["appointment_id"]
+          },
+          {
             foreignKeyName: "medical_records_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -392,6 +441,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "patient_comprehensive_report"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medical_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_installments"
+            referencedColumns: ["patient_id"]
+          },
+          {
+            foreignKeyName: "medical_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_services"
+            referencedColumns: ["patient_id"]
           },
           {
             foreignKeyName: "medical_records_patient_id_fkey"
@@ -446,6 +509,20 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "patient_comprehensive_report"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_financial_summary_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "patient_detailed_installments"
+            referencedColumns: ["patient_id"]
+          },
+          {
+            foreignKeyName: "patient_financial_summary_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "patient_detailed_services"
+            referencedColumns: ["patient_id"]
           },
           {
             foreignKeyName: "patient_financial_summary_patient_id_fkey"
@@ -544,11 +621,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "payments_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_installments"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "payments_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_services"
+            referencedColumns: ["appointment_id"]
+          },
+          {
             foreignKeyName: "payments_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patient_comprehensive_report"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_installments"
+            referencedColumns: ["patient_id"]
+          },
+          {
+            foreignKeyName: "payments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_detailed_services"
+            referencedColumns: ["patient_id"]
           },
           {
             foreignKeyName: "payments_patient_id_fkey"
@@ -780,11 +885,66 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_detailed_installments: {
+        Row: {
+          appointment_date: string | null
+          appointment_id: string | null
+          days_overdue: number | null
+          due_date: string | null
+          full_name: string | null
+          installment_amount: number | null
+          installment_id: string | null
+          installment_number: number | null
+          installment_status: string | null
+          is_paid: boolean | null
+          paid_date: string | null
+          patient_id: string | null
+          payment_id: string | null
+          total_payment_amount: number | null
+        }
+        Relationships: []
+      }
+      patient_detailed_services: {
+        Row: {
+          appointment_id: string | null
+          appointment_service_notes: string | null
+          appointment_status:
+            | Database["public"]["Enums"]["appointment_status"]
+            | null
+          full_name: string | null
+          patient_id: string | null
+          quantity: number | null
+          scheduled_date: string | null
+          scheduled_time: string | null
+          service_category: string | null
+          service_description: string | null
+          service_name: string | null
+          service_notes: string | null
+          total_price: number | null
+          unit_price: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_patient_installments_summary: {
+        Args: { patient_id_param: string }
+        Returns: {
+          total_installments: number
+          paid_installments: number
+          pending_installments: number
+          overdue_installments: number
+          total_amount: number
+          paid_amount: number
+          pending_amount: number
+          overdue_amount: number
+          next_due_date: string
+          next_due_amount: number
+        }[]
       }
       recalculate_appointment_total: {
         Args: { appointment_id_param: string }
