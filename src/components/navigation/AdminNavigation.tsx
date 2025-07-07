@@ -1,9 +1,10 @@
 
-import { Calendar, Users, DollarSign, CreditCard, BarChart3, Settings, Stethoscope, UserCog, Receipt, CalendarDays } from "lucide-react";
+import { Calendar, Users, DollarSign, CreditCard, BarChart3, Settings, Stethoscope, UserCog, Receipt, CalendarDays, FileText } from "lucide-react";
 
 const adminNavigation = [
   { name: "لوحة التحكم", href: "/dashboard", icon: BarChart3 },
   { name: "المرضى", href: "/patients", icon: Users },
+  { name: "تقارير المرضى", href: "/patient-reports", icon: FileText },
   { name: "المواعيد", href: "/appointments", icon: Calendar },
   { name: "التقويم", href: "/appointments-calendar", icon: CalendarDays },
   { name: "المدفوعات", href: "/payments", icon: DollarSign },

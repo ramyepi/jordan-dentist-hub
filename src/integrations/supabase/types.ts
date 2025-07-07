@@ -130,6 +130,13 @@ export type Database = {
             foreignKeyName: "appointments_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "patient_comprehensive_report"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
@@ -383,6 +390,13 @@ export type Database = {
             foreignKeyName: "medical_records_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "patient_comprehensive_report"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medical_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
@@ -426,6 +440,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "patient_financial_summary_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "patient_comprehensive_report"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "patient_financial_summary_patient_id_fkey"
             columns: ["patient_id"]
@@ -526,6 +547,13 @@ export type Database = {
             foreignKeyName: "payments_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
+            referencedRelation: "patient_comprehensive_report"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
@@ -582,6 +610,50 @@ export type Database = {
         }
         Relationships: []
       }
+      service_categories: {
+        Row: {
+          color: string
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          name_en: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          name_en: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          name_en?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_settings: {
         Row: {
           calendar_type: string
@@ -635,6 +707,7 @@ export type Database = {
       treatment_services: {
         Row: {
           category: string
+          category_id: string | null
           created_at: string
           description: string | null
           duration_minutes: number | null
@@ -646,6 +719,7 @@ export type Database = {
         }
         Insert: {
           category?: string
+          category_id?: string | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -657,6 +731,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          category_id?: string | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -666,11 +741,45 @@ export type Database = {
           price?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "treatment_services_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
-      [_ in never]: never
+      patient_comprehensive_report: {
+        Row: {
+          address: string | null
+          completed_appointments: number | null
+          date_of_birth: string | null
+          email: string | null
+          first_appointment_date: string | null
+          full_name: string | null
+          id: string | null
+          last_appointment_date: string | null
+          medical_history: string | null
+          next_installment_date: string | null
+          outstanding_balance: number | null
+          patient_notes: string | null
+          patient_since: string | null
+          pending_installments: number | null
+          pending_installments_amount: number | null
+          phone: string | null
+          scheduled_appointments: number | null
+          total_appointments: number | null
+          total_installments: number | null
+          total_paid: number | null
+          total_treatment_cost: number | null
+          treatment_plans: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_current_user_role: {

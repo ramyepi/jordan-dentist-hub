@@ -47,6 +47,12 @@ const AdminSidebar = () => {
       description: "قائمة وإدارة المرضى"
     },
     {
+      title: "تقارير المرضى",
+      icon: FileText,
+      path: "/patient-reports",
+      description: "تقارير شاملة للمرضى"
+    },
+    {
       title: "المواعيد",
       icon: Calendar,
       path: "/appointments",

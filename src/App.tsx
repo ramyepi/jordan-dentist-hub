@@ -1,132 +1,73 @@
 
-import React, { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import AppHeader from "@/components/AppHeader";
-import AdminSidebar from "@/components/AdminSidebar";
-import Patients from "@/pages/Patients";
-import AppointmentsCalendar from "@/pages/AppointmentsCalendar";
-import Appointments from "@/pages/Appointments";
-import SystemSettings from "@/pages/SystemSettings";
-import Expenses from "@/pages/Expenses";
-import Dashboard from "@/pages/Dashboard";
-import Auth from "@/pages/Auth";
-import StaffManagement from "@/pages/StaffManagement";
-import FinancialAnalytics from "@/pages/FinancialAnalytics";
-import Payments from "@/pages/Payments";
-import Installments from "@/pages/Installments";
-import PatientPayments from "@/pages/PatientPayments";
-import PatientProfile from "@/pages/PatientProfile";
-import TreatmentServices from "@/pages/TreatmentServices";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SystemSettingsProvider } from "@/contexts/SystemSettingsContext";
-import Footer from "@/components/Footer";
+import AdminSidebar from "@/components/AdminSidebar";
+import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import Dashboard from "./pages/Dashboard";
+import Patients from "./pages/Patients";
+import PatientProfile from "./pages/PatientProfile";
+import PatientReports from "./pages/PatientReports";
+import Appointments from "./pages/Appointments";
+import AppointmentsCalendar from "./pages/AppointmentsCalendar";
+import Payments from "./pages/Payments";
+import PatientPayments from "./pages/PatientPayments";
+import Installments from "./pages/Installments";
+import Expenses from "./pages/Expenses";
+import TreatmentServices from "./pages/TreatmentServices";
+import StaffManagement from "./pages/StaffManagement";
+import FinancialAnalytics from "./pages/FinancialAnalytics";
+import SystemSettings from "./pages/SystemSettings";
+import NotFound from "./pages/NotFound";
+
+const queryClient = new QueryClient();
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
-  const { toast } = useToast();
-
-  const queryClient = new QueryClient();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-  }, []);
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user) {
-        setUserProfile(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (error) {
-        console.error("Error fetching profile:", error);
-        toast({
-          variant: "destructive",
-          title: "خطأ",
-          description: "حدث خطأ في جلب معلومات المستخدم",
-        });
-        return;
-      }
-
-      setUserProfile(data);
-    };
-
-    fetchProfile();
-  }, [user, toast]);
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error logging out:", error);
-      toast({
-        variant: "destructive",
-        title: "Logout Failed",
-        description: "Failed to log out. Please try again.",
-      });
-    } else {
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      });
-    }
-  };
-
   return (
-    <SystemSettingsProvider>
-      <QueryClientProvider client={queryClient}>
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+    <QueryClientProvider client={queryClient}>
+      <SystemSettingsProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
           <BrowserRouter>
-            <Toaster />
-            {user && (
-              <AppHeader 
-                profile={userProfile} 
-              />
-            )}
-            <div className="flex flex-1">
-              {user && userProfile && (
-                <AdminSidebar />
-              )}
-              <main className="flex-1 p-6 overflow-auto">
-                <Routes>
-                  <Route path="/auth" element={user ? <Navigate to="/" /> : <Auth />} />
-                  <Route path="/" element={user ? <Dashboard /> : <Navigate to="/auth" />} />
-                  <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/auth" />} />
-                  <Route path="/staff-management" element={user ? <StaffManagement /> : <Navigate to="/auth" />} />
-                  <Route path="/patients" element={user ? <Patients /> : <Navigate to="/auth" />} />
-                  <Route path="/patient/:id" element={user ? <PatientProfile /> : <Navigate to="/auth" />} />
-                  <Route path="/appointments" element={user ? <Appointments /> : <Navigate to="/auth" />} />
-                  <Route path="/appointments-calendar" element={user ? <AppointmentsCalendar /> : <Navigate to="/auth" />} />
-                  <Route path="/payments" element={user ? <Payments /> : <Navigate to="/auth" />} />
-                  <Route path="/patient-payments" element={user ? <PatientPayments /> : <Navigate to="/auth" />} />
-                  <Route path="/installments" element={user ? <Installments /> : <Navigate to="/auth" />} />
-                  <Route path="/expenses" element={user ? <Expenses /> : <Navigate to="/auth" />} />
-                  <Route path="/financial-analytics" element={user ? <FinancialAnalytics /> : <Navigate to="/auth" />} />
-                  <Route path="/treatment-services" element={user ? <TreatmentServices /> : <Navigate to="/auth" />} />
-                  <Route path="/system-settings" element={user ? <SystemSettings /> : <Navigate to="/auth" />} />
-                </Routes>
-              </main>
+            <div className="min-h-screen flex bg-gray-50">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/*" element={
+                  <div className="flex w-full">
+                    <AdminSidebar />
+                    <div className="flex-1">
+                      <Routes>
+                        <Route path="/dashboard" element={<Dashboard />} />
+                        <Route path="/patients" element={<Patients />} />
+                        <Route path="/patient/:id" element={<PatientProfile />} />
+                        <Route path="/patient-reports" element={<PatientReports />} />
+                        <Route path="/appointments" element={<Appointments />} />
+                        <Route path="/appointments-calendar" element={<AppointmentsCalendar />} />
+                        <Route path="/payments" element={<Payments />} />
+                        <Route path="/patient-payments" element={<PatientPayments />} />
+                        <Route path="/installments" element={<Installments />} />
+                        <Route path="/expenses" element={<Expenses />} />
+                        <Route path="/treatment-services" element={<TreatmentServices />} />
+                        <Route path="/staff-management" element={<StaffManagement />} />
+                        <Route path="/financial-analytics" element={<FinancialAnalytics />} />
+                        <Route path="/system-settings" element={<SystemSettings />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </div>
+                  </div>
+                } />
+              </Routes>
             </div>
-            <Footer />
           </BrowserRouter>
-        </div>
-      </QueryClientProvider>
-    </SystemSettingsProvider>
+        </TooltipProvider>
+      </SystemSettingsProvider>
+    </QueryClientProvider>
   );
 }
 
