@@ -52,8 +52,12 @@ interface Appointment {
   scheduled_time: string;
   status: string;
   appointment_type: string;
-  total_cost: number;
+  total_cost: number | null;
   notes: string | null;
+  discount_percentage?: number;
+  discount_amount?: number;
+  subtotal?: number;
+  final_total?: number;
   doctor: {
     full_name: string;
     specialization: string | null;
@@ -312,6 +316,17 @@ const PatientProfile = () => {
     return "pending";
   };
 
+  // مساعد للحصول على المبلغ النهائي للموعد
+  const getFinalTotal = (appointment: Appointment) => {
+    return appointment.final_total || appointment.total_cost || 0;
+  };
+
+  // مساعد للتحقق من وجود خصم
+  const hasDiscount = (appointment: Appointment) => {
+    return (appointment.discount_percentage && appointment.discount_percentage > 0) || 
+           (appointment.discount_amount && appointment.discount_amount > 0);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -511,8 +526,9 @@ const PatientProfile = () => {
                 ) : (
                   <div className="space-y-4">
                     {appointments.map((appointment) => {
-                      const paymentStatus = getAppointmentPaymentStatus(appointment.id, appointment.final_total || appointment.total_cost || 0);
-                      const needsPayment = paymentStatus !== "paid" && (appointment.final_total || appointment.total_cost) && (appointment.final_total || appointment.total_cost) > 0;
+                      const finalTotal = getFinalTotal(appointment);
+                      const paymentStatus = getAppointmentPaymentStatus(appointment.id, finalTotal);
+                      const needsPayment = paymentStatus !== "paid" && finalTotal > 0;
                       
                       return (
                         <div key={appointment.id} className="border rounded-lg p-4 bg-white">
@@ -532,19 +548,19 @@ const PatientProfile = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="text-left">
-                                {appointment.subtotal !== appointment.final_total && appointment.discount_percentage > 0 && (
+                                {hasDiscount(appointment) && (
                                   <div className="flex items-center gap-1 text-sm text-orange-600">
                                     <Percent className="h-3 w-3" />
-                                    <span>خصم {appointment.discount_percentage}%</span>
+                                    <span>خصم {appointment.discount_percentage || 0}%</span>
                                   </div>
                                 )}
-                                {appointment.subtotal && appointment.subtotal > 0 && appointment.subtotal !== appointment.final_total && (
+                                {appointment.subtotal && appointment.subtotal > 0 && hasDiscount(appointment) && (
                                   <p className="text-sm text-gray-500 line-through">
                                     {formatCurrency(appointment.subtotal)}
                                   </p>
                                 )}
                                 <p className="font-bold text-lg">
-                                  {formatCurrency(appointment.final_total || appointment.total_cost || 0)}
+                                  {formatCurrency(finalTotal)}
                                 </p>
                               </div>
                               <div className="flex flex-col gap-1">
@@ -615,20 +631,20 @@ const PatientProfile = () => {
                               </div>
                               
                               {/* عرض ملخص المبالغ إذا كان هناك خصم */}
-                              {(appointment.discount_percentage > 0 || appointment.discount_amount > 0) && (
+                              {hasDiscount(appointment) && (
                                 <div className="mt-3 p-3 bg-blue-50 rounded border-l-4 border-l-blue-500">
                                   <div className="text-sm space-y-1">
                                     <div className="flex justify-between">
                                       <span>المجموع الفرعي:</span>
                                       <span>{formatCurrency(appointment.subtotal || 0)}</span>
                                     </div>
-                                    {appointment.discount_percentage > 0 && (
+                                    {appointment.discount_percentage && appointment.discount_percentage > 0 && (
                                       <div className="flex justify-between text-orange-600">
                                         <span>خصم ({appointment.discount_percentage}%):</span>
                                         <span>-{formatCurrency(appointment.discount_amount || 0)}</span>
                                       </div>
                                     )}
-                                    {appointment.discount_amount > 0 && appointment.discount_percentage === 0 && (
+                                    {appointment.discount_amount && appointment.discount_amount > 0 && (!appointment.discount_percentage || appointment.discount_percentage === 0) && (
                                       <div className="flex justify-between text-orange-600">
                                         <span>خصم ثابت:</span>
                                         <span>-{formatCurrency(appointment.discount_amount || 0)}</span>
@@ -637,7 +653,7 @@ const PatientProfile = () => {
                                     <Separator />
                                     <div className="flex justify-between font-bold">
                                       <span>المجموع النهائي:</span>
-                                      <span className="text-green-600">{formatCurrency(appointment.final_total || 0)}</span>
+                                      <span className="text-green-600">{formatCurrency(finalTotal)}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -735,7 +751,7 @@ const PatientProfile = () => {
           }}
           appointmentId={selectedAppointment.id}
           patientId={patient.id}
-          totalAmount={selectedAppointment.final_total || selectedAppointment.total_cost || 0}
+          totalAmount={getFinalTotal(selectedAppointment)}
           patientName={patient.full_name}
           onPaymentComplete={handlePaymentComplete}
         />
