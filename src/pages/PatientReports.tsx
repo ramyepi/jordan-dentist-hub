@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -73,7 +72,7 @@ interface DetailedInstallment {
   due_date: string;
   paid_date: string | null;
   is_paid: boolean;
-  installment_status: 'paid' | 'pending' | 'overdue';
+  installment_status: string; // Changed from union type to string to match database
   days_overdue: number;
   appointment_date: string;
   total_payment_amount: number;

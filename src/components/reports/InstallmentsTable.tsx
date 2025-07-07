@@ -14,7 +14,7 @@ interface DetailedInstallment {
   due_date: string;
   paid_date: string | null;
   is_paid: boolean;
-  installment_status: 'paid' | 'pending' | 'overdue';
+  installment_status: string; // Changed from union type to string
   days_overdue: number;
   appointment_date: string;
   total_payment_amount: number;
