@@ -14,7 +14,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "@/hooks/use-toast";
 import { 
   Users, 
-  Plus, 
   Search, 
   Edit, 
   Shield, 
@@ -23,7 +22,6 @@ import {
   Trash2,
   Calendar,
   Phone,
-  Mail,
   DollarSign
 } from "lucide-react";
 
@@ -138,7 +136,16 @@ const StaffManagement = () => {
       toast({
         variant: "destructive",
         title: "غير مسموح",
-        description: "لا يمكنك إضافة أو تعديل الموظفين",
+        description: "لا يمكنك تعديل الموظفين",
+      });
+      return;
+    }
+
+    if (!editingStaff) {
+      toast({
+        variant: "destructive",
+        title: "خطأ",
+        description: "لا يمكن إضافة موظفين جدد من هذه الواجهة. يجب إنشاء حساب مستخدم أولاً.",
       });
       return;
     }
@@ -156,30 +163,17 @@ const StaffManagement = () => {
         notes: formData.notes || null,
       };
 
-      if (editingStaff) {
-        const { error } = await supabase
-          .from("profiles")
-          .update(staffData)
-          .eq("id", editingStaff.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update(staffData)
+        .eq("id", editingStaff.id);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast({
-          title: "تم التحديث",
-          description: "تم تحديث بيانات الموظف بنجاح",
-        });
-      } else {
-        const { error } = await supabase
-          .from("profiles")
-          .insert([staffData]);
-
-        if (error) throw error;
-
-        toast({
-          title: "تم الإضافة",
-          description: "تم إضافة الموظف الجديد بنجاح",
-        });
-      }
+      toast({
+        title: "تم التحديث",
+        description: "تم تحديث بيانات الموظف بنجاح",
+      });
 
       resetForm();
       setIsDialogOpen(false);
@@ -346,120 +340,9 @@ const StaffManagement = () => {
               </div>
             </div>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={resetForm} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  إضافة موظف جديد
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingStaff ? "تعديل بيانات الموظف" : "إضافة موظف جديد"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingStaff ? "قم بتعديل بيانات الموظف أدناه" : "أدخل بيانات الموظف الجديد أدناه"}
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="full_name">الاسم الكامل *</Label>
-                      <Input
-                        id="full_name"
-                        value={formData.full_name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="role">المنصب *</Label>
-                      <Select value={formData.role} onValueChange={(value: StaffMember['role']) => setFormData(prev => ({ ...prev, role: value }))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">مدير</SelectItem>
-                          <SelectItem value="doctor">طبيب</SelectItem>
-                          <SelectItem value="receptionist">موظف استقبال</SelectItem>
-                          <SelectItem value="nurse">ممرض</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">رقم الهاتف</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="employee_id">رقم الموظف</Label>
-                      <Input
-                        id="employee_id"
-                        value={formData.employee_id}
-                        onChange={(e) => setFormData(prev => ({ ...prev, employee_id: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="specialization">التخصص</Label>
-                      <Input
-                        id="specialization"
-                        value={formData.specialization}
-                        onChange={(e) => setFormData(prev => ({ ...prev, specialization: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="hire_date">تاريخ التوظيف</Label>
-                      <Input
-                        id="hire_date"
-                        type="date"
-                        value={formData.hire_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, hire_date: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="salary">الراتب</Label>
-                      <Input
-                        id="salary"
-                        type="number"
-                        step="0.01"
-                        value={formData.salary}
-                        onChange={(e) => setFormData(prev => ({ ...prev, salary: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="emergency_contact">جهة اتصال الطوارئ</Label>
-                      <Input
-                        id="emergency_contact"
-                        value={formData.emergency_contact}
-                        onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label htmlFor="notes">ملاحظات</Label>
-                      <Textarea
-                        id="notes"
-                        value={formData.notes}
-                        onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      إلغاء
-                    </Button>
-                    <Button type="submit">
-                      {editingStaff ? "تحديث" : "إضافة"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <div className="text-sm text-gray-600">
+              ملاحظة: يمكن تعديل بيانات الموظفين الحاليين فقط. لإضافة موظف جديد، يجب إنشاء حساب مستخدم أولاً.
+            </div>
           </div>
         </div>
       </header>
@@ -509,9 +392,120 @@ const StaffManagement = () => {
                     </CardDescription>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(staffMember)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    <Dialog open={isDialogOpen && editingStaff?.id === staffMember.id} onOpenChange={(open) => {
+                      setIsDialogOpen(open);
+                      if (!open) setEditingStaff(null);
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm" onClick={() => handleEdit(staffMember)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>تعديل بيانات الموظف</DialogTitle>
+                          <DialogDescription>
+                            قم بتعديل بيانات الموظف أدناه
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleSubmit}>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="full_name">الاسم الكامل *</Label>
+                              <Input
+                                id="full_name"
+                                value={formData.full_name}
+                                onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="role">المنصب *</Label>
+                              <Select value={formData.role} onValueChange={(value: StaffMember['role']) => setFormData(prev => ({ ...prev, role: value }))}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="admin">مدير</SelectItem>
+                                  <SelectItem value="doctor">طبيب</SelectItem>
+                                  <SelectItem value="receptionist">موظف استقبال</SelectItem>
+                                  <SelectItem value="nurse">ممرض</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="phone">رقم الهاتف</Label>
+                              <Input
+                                id="phone"
+                                type="tel"
+                                value={formData.phone}
+                                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="employee_id">رقم الموظف</Label>
+                              <Input
+                                id="employee_id"
+                                value={formData.employee_id}
+                                onChange={(e) => setFormData(prev => ({ ...prev, employee_id: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="specialization">التخصص</Label>
+                              <Input
+                                id="specialization"
+                                value={formData.specialization}
+                                onChange={(e) => setFormData(prev => ({ ...prev, specialization: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="hire_date">تاريخ التوظيف</Label>
+                              <Input
+                                id="hire_date"
+                                type="date"
+                                value={formData.hire_date}
+                                onChange={(e) => setFormData(prev => ({ ...prev, hire_date: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="salary">الراتب</Label>
+                              <Input
+                                id="salary"
+                                type="number"
+                                step="0.01"
+                                value={formData.salary}
+                                onChange={(e) => setFormData(prev => ({ ...prev, salary: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="emergency_contact">جهة اتصال الطوارئ</Label>
+                              <Input
+                                id="emergency_contact"
+                                value={formData.emergency_contact}
+                                onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <Label htmlFor="notes">ملاحظات</Label>
+                              <Textarea
+                                id="notes"
+                                value={formData.notes}
+                                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                              إلغاء
+                            </Button>
+                            <Button type="submit">
+                              تحديث
+                            </Button>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -602,7 +596,7 @@ const StaffManagement = () => {
               {searchTerm || selectedRole !== "all" ? "لم يتم العثور على موظفين" : "لا توجد موظفين"}
             </h3>
             <p className="text-gray-600">
-              {searchTerm || selectedRole !== "all" ? "جرب تغيير معايير البحث" : "ابدأ بإضافة أول موظف"}
+              {searchTerm || selectedRole !== "all" ? "جرب تغيير معايير البحث" : "لا يوجد موظفين مسجلين في النظام"}
             </p>
           </div>
         )}
