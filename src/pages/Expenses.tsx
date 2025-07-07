@@ -18,6 +18,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Receipt, 
   Plus, 
@@ -26,9 +27,12 @@ import {
   Trash2,
   Search,
   Download,
-  Upload
+  Upload,
+  Settings
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useExpenseCategories } from "@/hooks/useExpenseCategories";
+import ExpenseCategoriesManagement from "@/components/ExpenseCategoriesManagement";
 
 interface ClinicExpense {
   id: string;
@@ -36,6 +40,7 @@ interface ClinicExpense {
   description: string | null;
   amount: number;
   category: string;
+  category_id: string | null;
   expense_date: string;
   receipt_path: string | null;
   created_at: string;
@@ -51,13 +56,15 @@ const Expenses = () => {
   const [editingExpense, setEditingExpense] = useState<ClinicExpense | null>(null);
   const [newExpenseDate, setNewExpenseDate] = useState<Date | undefined>();
   const navigate = useNavigate();
+  
+  const { categories, refetchCategories } = useExpenseCategories();
 
   // Form states
   const [newExpense, setNewExpense] = useState({
     title: "",
     description: "",
     amount: "",
-    category: "general",
+    category_id: "",
     expense_date: "",
     receipt_path: ""
   });
@@ -70,7 +77,14 @@ const Expenses = () => {
     try {
       const { data, error } = await supabase
         .from("clinic_expenses")
-        .select("*")
+        .select(`
+          *,
+          expense_categories (
+            id,
+            name,
+            color
+          )
+        `)
         .order("expense_date", { ascending: false });
 
       if (error) {
@@ -124,12 +138,26 @@ const Expenses = () => {
       return;
     }
 
+    if (!newExpense.category_id) {
+      toast({
+        variant: "destructive",
+        title: "خطأ",
+        description: "الرجاء اختيار فئة المصروف",
+      });
+      return;
+    }
+
     try {
+      // Find selected category name for legacy category field
+      const selectedCategory = categories.find(cat => cat.id === newExpense.category_id);
+      
       const { error } = await supabase
         .from("clinic_expenses")
         .insert([{
-          ...newExpense,
+          title: newExpense.title,
           amount: parseFloat(newExpense.amount),
+          category: selectedCategory?.name_en || 'general',
+          category_id: newExpense.category_id,
           expense_date: format(newExpenseDate, "yyyy-MM-dd"),
           created_by: userId,
           description: newExpense.description || null,
@@ -152,7 +180,7 @@ const Expenses = () => {
           title: "",
           description: "",
           amount: "",
-          category: "general",
+          category_id: "",
           expense_date: "",
           receipt_path: ""
         });
@@ -179,13 +207,16 @@ const Expenses = () => {
     }
 
     try {
+      const selectedCategory = categories.find(cat => cat.id === newExpense.category_id);
+      
       const { error } = await supabase
         .from("clinic_expenses")
         .update({
           title: newExpense.title,
           description: newExpense.description || null,
           amount: parseFloat(newExpense.amount),
-          category: newExpense.category,
+          category: selectedCategory?.name_en || 'general',
+          category_id: newExpense.category_id,
           expense_date: format(newExpenseDate, "yyyy-MM-dd"),
           receipt_path: newExpense.receipt_path || null
         })
@@ -246,7 +277,7 @@ const Expenses = () => {
       title: expense.title,
       description: expense.description || "",
       amount: expense.amount.toString(),
-      category: expense.category,
+      category_id: expense.category_id || "",
       expense_date: expense.expense_date,
       receipt_path: expense.receipt_path || ""
     });
@@ -254,22 +285,37 @@ const Expenses = () => {
     setIsEditDialogOpen(true);
   };
 
-  const filteredExpenses = expenses.filter(expense =>
-    expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    expense.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredExpenses = expenses.filter(expense => {
+    const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const categoryName = categories.find(cat => cat.id === expense.category_id)?.name || expense.category;
+    const matchesCategory = categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch || matchesCategory;
+  });
 
-  const getCategoryInArabic = (category: string) => {
-    const categories = {
+  const getCategoryBadge = (expense: ClinicExpense) => {
+    const category = categories.find(cat => cat.id === expense.category_id);
+    if (category) {
+      return (
+        <Badge className={category.color}>
+          {category.name}
+        </Badge>
+      );
+    }
+    // Fallback for legacy categories
+    const legacyCategories = {
       general: "عام",
-      rent: "إيجار",
+      rent: "إيجار", 
       salaries: "رواتب",
       utilities: "خدمات",
       supplies: "لوازم",
       marketing: "تسويق",
       maintenance: "صيانة"
     };
-    return categories[category as keyof typeof categories] || category;
+    return (
+      <Badge variant="outline">
+        {legacyCategories[expense.category as keyof typeof legacyCategories] || expense.category}
+      </Badge>
+    );
   };
 
   const handleDownloadReceipt = (receiptPath: string | null) => {
@@ -372,372 +418,389 @@ const Expenses = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search and Add */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
-            <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="البحث عن مصروف بالاسم أو الفئة..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pr-10"
-            />
-          </div>
-          
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="medical-gradient gap-2">
-                <Plus className="h-4 w-4" />
-                إضافة مصروف جديد
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>إضافة مصروف جديد</DialogTitle>
-                <DialogDescription>
-                  أدخل تفاصيل المصروف الجديد
-                </DialogDescription>
-              </DialogHeader>
-              
-              <form onSubmit={handleAddExpense} className="space-y-4">
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">عنوان المصروف *</Label>
-                    <Input
-                      id="title"
-                      value={newExpense.title}
-                      onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
-                      placeholder="أدخل عنوان المصروف"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="category">الفئة</Label>
-                    <Select 
-                      value={newExpense.category}
-                      onValueChange={(value) => setNewExpense({...newExpense, category: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="general">عام</SelectItem>
-                        <SelectItem value="rent">إيجار</SelectItem>
-                        <SelectItem value="salaries">رواتب</SelectItem>
-                        <SelectItem value="utilities">خدمات</SelectItem>
-                        <SelectItem value="supplies">لوازم</SelectItem>
-                        <SelectItem value="marketing">تسويق</SelectItem>
-                        <SelectItem value="maintenance">صيانة</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">المبلغ (د.أ) *</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={newExpense.amount}
-                      onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                      placeholder="0.00"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="expense_date">تاريخ المصروف *</Label>
-                    <Calendar
-                      mode="single"
-                      locale={ar}
-                      selected={newExpenseDate}
-                      onSelect={setNewExpenseDate}
-                      className="rounded-md border"
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="description">الوصف</Label>
-                  <Textarea
-                    id="description"
-                    value={newExpense.description}
-                    onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
-                    placeholder="وصف المصروف"
-                  />
-                </div>
+        <Tabs defaultValue="expenses" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="expenses" className="gap-2">
+              <Receipt className="h-4 w-4" />
+              إدارة المصروفات
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="gap-2">
+              <Settings className="h-4 w-4" />
+              إدارة الفئات
+            </TabsTrigger>
+          </TabsList>
 
-                <div className="space-y-2">
-                  <Label htmlFor="receipt">إيصال الدفع</Label>
-                  <Input
-                    type="file"
-                    id="receipt"
-                    className="hidden"
-                    onChange={handleUploadReceipt}
-                  />
-                  <Button variant="secondary" asChild>
-                    <Label htmlFor="receipt" className="flex items-center gap-2 cursor-pointer">
-                      <Upload className="h-4 w-4" />
-                      {newExpense.receipt_path ? "تغيير الإيصال" : "إرفاق إيصال"}
-                    </Label>
+          <TabsContent value="expenses" className="space-y-6">
+            {/* Search and Add */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              <div className="flex-1 relative">
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="البحث عن مصروف بالاسم أو الفئة..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pr-10"
+                />
+              </div>
+              
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="medical-gradient gap-2">
+                    <Plus className="h-4 w-4" />
+                    إضافة مصروف جديد
                   </Button>
-                  {newExpense.receipt_path && (
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm text-gray-500">
-                        تم رفع الإيصال: {newExpense.receipt_path.split('/').pop()}
-                      </p>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>إضافة مصروف جديد</DialogTitle>
+                    <DialogDescription>
+                      أدخل تفاصيل المصروف الجديد
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <form onSubmit={handleAddExpense} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="title">عنوان المصروف *</Label>
+                        <Input
+                          id="title"
+                          value={newExpense.title}
+                          onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
+                          placeholder="أدخل عنوان المصروف"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="category">الفئة *</Label>
+                        <Select 
+                          value={newExpense.category_id}
+                          onValueChange={(value) => setNewExpense({...newExpense, category_id: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="اختر الفئة" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-3 h-3 rounded-full ${category.color.split(' ')[0]}`}></div>
+                                  {category.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">المبلغ (د.أ) *</Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={newExpense.amount}
+                          onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                          placeholder="0.00"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="expense_date">تاريخ المصروف *</Label>
+                        <Calendar
+                          mode="single"
+                          locale={ar}
+                          selected={newExpenseDate}
+                          onSelect={setNewExpenseDate}
+                          className="rounded-md border"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="description">الوصف</Label>
+                      <Textarea
+                        id="description"
+                        value={newExpense.description}
+                        onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
+                        placeholder="وصف المصروف"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="receipt">إيصال الدفع</Label>
+                      <Input
+                        type="file"
+                        id="receipt"
+                        className="hidden"
+                        onChange={handleUploadReceipt}
+                      />
+                      <Button variant="secondary" asChild>
+                        <Label htmlFor="receipt" className="flex items-center gap-2 cursor-pointer">
+                          <Upload className="h-4 w-4" />
+                          {newExpense.receipt_path ? "تغيير الإيصال" : "إرفاق إيصال"}
+                        </Label>
+                      </Button>
+                      {newExpense.receipt_path && (
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-gray-500">
+                            تم رفع الإيصال: {newExpense.receipt_path.split('/').pop()}
+                          </p>
+                          <Button 
+                            variant="link" 
+                            size="sm"
+                            onClick={() => handleDownloadReceipt(newExpense.receipt_path)}
+                          >
+                            <Download className="h-4 w-4 ml-2" />
+                            تحميل
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex gap-3 pt-4">
+                      <Button type="submit" className="medical-gradient flex-1">
+                        إضافة المصروف
+                      </Button>
                       <Button 
-                        variant="link" 
-                        size="sm"
-                        onClick={() => handleDownloadReceipt(newExpense.receipt_path)}
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setIsAddDialogOpen(false)}
+                        className="flex-1"
                       >
-                        <Download className="h-4 w-4 ml-2" />
-                        تحميل
+                        إلغاء
                       </Button>
                     </div>
-                  )}
-                </div>
-                
-                <div className="flex gap-3 pt-4">
-                  <Button type="submit" className="medical-gradient flex-1">
-                    إضافة المصروف
-                  </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Expenses Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredExpenses.map((expense) => (
+                <Card key={expense.id} className="shadow-medical hover:shadow-elevated transition-shadow">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{expense.title}</CardTitle>
+                      {getCategoryBadge(expense)}
+                    </div>
+                    <CardDescription>
+                      {format(new Date(expense.expense_date), "dd MMMM yyyy", { locale: ar })}
+                    </CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Receipt className="h-4 w-4 text-blue-600" />
+                        <span className="font-bold text-lg">{expense.amount.toFixed(2)} د.أ</span>
+                      </div>
+                    </div>
+                    
+                    {expense.description && (
+                      <p className="text-sm text-gray-600 line-clamp-2">{expense.description}</p>
+                    )}
+
+                    {expense.receipt_path && (
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-500">
+                          مرفق إيصال
+                        </p>
+                        <Button 
+                          variant="link" 
+                          size="sm"
+                          onClick={() => handleDownloadReceipt(expense.receipt_path)}
+                        >
+                          <Download className="h-4 w-4 ml-2" />
+                          تحميل
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1 gap-1"
+                        onClick={() => openEditDialog(expense)}
+                      >
+                        <Edit className="h-3 w-3" />
+                        تعديل
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="gap-1"
+                        onClick={() => handleDeleteExpense(expense.id, expense.title)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        حذف
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {filteredExpenses.length === 0 && (
+              <div className="text-center py-12">
+                <Receipt className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {searchTerm ? "لم يتم العثور على مصروفات" : "لا توجد مصروفات"}
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  {searchTerm ? "جرب تغيير كلمات البحث" : "ابدأ بإضافة أول مصروف"}
+                </p>
+                {!searchTerm && (
                   <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setIsAddDialogOpen(false)}
-                    className="flex-1"
+                    onClick={() => setIsAddDialogOpen(true)}
+                    className="medical-gradient gap-2"
                   >
-                    إلغاء
+                    <Plus className="h-4 w-4" />
+                    إضافة مصروف جديد
                   </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
 
-        {/* Expenses Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredExpenses.map((expense) => (
-            <Card key={expense.id} className="shadow-medical hover:shadow-elevated transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{expense.title}</CardTitle>
-                  <Badge variant="outline">
-                    {getCategoryInArabic(expense.category)}
-                  </Badge>
-                </div>
-                <CardDescription>
-                  {format(new Date(expense.expense_date), "dd MMMM yyyy", { locale: ar })}
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Receipt className="h-4 w-4 text-blue-600" />
-                    <span className="font-bold text-lg">{expense.amount.toFixed(2)} د.أ</span>
-                  </div>
+          <TabsContent value="categories">
+            <ExpenseCategoriesManagement />
+          </TabsContent>
+        </Tabs>
+
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>تعديل المصروف</DialogTitle>
+              <DialogDescription>
+                تحديث تفاصيل المصروف
+              </DialogDescription>
+            </DialogHeader>
+            
+            <form onSubmit={handleEditExpense} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-title">عنوان المصروف *</Label>
+                  <Input
+                    id="edit-title"
+                    value={newExpense.title}
+                    onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
+                    placeholder="أدخل عنوان المصروف"
+                    required
+                  />
                 </div>
                 
-                {expense.description && (
-                  <p className="text-sm text-gray-600 line-clamp-2">{expense.description}</p>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category">الفئة *</Label>
+                  <Select 
+                    value={newExpense.category_id}
+                    onValueChange={(value) => setNewExpense({...newExpense, category_id: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="اختر الفئة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${category.color.split(' ')[0]}`}></div>
+                            {category.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-amount">المبلغ (د.أ) *</Label>
+                  <Input
+                    id="edit-amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={newExpense.amount}
+                    onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-expense_date">تاريخ المصروف *</Label>
+                  <Calendar
+                    mode="single"
+                    locale={ar}
+                    selected={newExpenseDate}
+                    onSelect={setNewExpenseDate}
+                    className="rounded-md border"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">الوصف</Label>
+                <Textarea
+                  id="edit-description"
+                  value={newExpense.description}
+                  onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
+                  placeholder="وصف المصروف"
+                />
+              </div>
 
-                {expense.receipt_path && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-receipt">إيصال الدفع</Label>
+                <Input
+                  type="file"
+                  id="edit-receipt"
+                  className="hidden"
+                  onChange={handleUploadReceipt}
+                />
+                <Button variant="secondary" asChild>
+                  <Label htmlFor="edit-receipt" className="flex items-center gap-2 cursor-pointer">
+                    <Upload className="h-4 w-4" />
+                    {newExpense.receipt_path ? "تغيير الإيصال" : "إرفاق إيصال"}
+                  </Label>
+                </Button>
+                {newExpense.receipt_path && (
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-gray-500">
-                      مرفق إيصال
+                      تم رفع الإيصال: {newExpense.receipt_path.split('/').pop()}
                     </p>
                     <Button 
                       variant="link" 
                       size="sm"
-                      onClick={() => handleDownloadReceipt(expense.receipt_path)}
+                      onClick={() => handleDownloadReceipt(newExpense.receipt_path)}
                     >
                       <Download className="h-4 w-4 ml-2" />
                       تحميل
                     </Button>
                   </div>
                 )}
-                
-                <div className="flex gap-2 pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 gap-1"
-                    onClick={() => openEditDialog(expense)}
-                  >
-                    <Edit className="h-3 w-3" />
-                    تعديل
-                  </Button>
-                  <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    className="gap-1"
-                    onClick={() => handleDeleteExpense(expense.id, expense.title)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    حذف
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        
-        {filteredExpenses.length === 0 && (
-          <div className="text-center py-12">
-            <Receipt className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm ? "لم يتم العثور على مصروفات" : "لا توجد مصروفات"}
-            </h3>
-            <p className="text-gray-600 mb-4">
-              {searchTerm ? "جرب تغيير كلمات البحث" : "ابدأ بإضافة أول مصروف"}
-            </p>
-            {!searchTerm && (
-              <Button 
-                onClick={() => setIsAddDialogOpen(true)}
-                className="medical-gradient gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                إضافة مصروف جديد
-              </Button>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>تعديل المصروف</DialogTitle>
-            <DialogDescription>
-              تحديث تفاصيل المصروف
-            </DialogDescription>
-          </DialogHeader>
-          
-          <form onSubmit={handleEditExpense} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-title">عنوان المصروف *</Label>
-                <Input
-                  id="edit-title"
-                  value={newExpense.title}
-                  onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
-                  placeholder="أدخل عنوان المصروف"
-                  required
-                />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="edit-category">الفئة</Label>
-                <Select 
-                  value={newExpense.category}
-                  onValueChange={(value) => setNewExpense({...newExpense, category: value})}
+              <div className="flex gap-3 pt-4">
+                <Button type="submit" className="medical-gradient flex-1">
+                  حفظ التغييرات
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsEditDialogOpen(false)}
+                  className="flex-1"
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">عام</SelectItem>
-                    <SelectItem value="rent">إيجار</SelectItem>
-                    <SelectItem value="salaries">رواتب</SelectItem>
-                    <SelectItem value="utilities">خدمات</SelectItem>
-                    <SelectItem value="supplies">لوازم</SelectItem>
-                    <SelectItem value="marketing">تسويق</SelectItem>
-                    <SelectItem value="maintenance">صيانة</SelectItem>
-                  </SelectContent>
-                </Select>
+                  إلغاء
+                </Button>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-amount">المبلغ (د.أ) *</Label>
-                <Input
-                  id="edit-amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={newExpense.amount}
-                  onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-expense_date">تاريخ المصروف *</Label>
-                <Calendar
-                  mode="single"
-                  locale={ar}
-                  selected={newExpenseDate}
-                  onSelect={setNewExpenseDate}
-                  className="rounded-md border"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="edit-description">الوصف</Label>
-              <Textarea
-                id="edit-description"
-                value={newExpense.description}
-                onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
-                placeholder="وصف المصروف"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-receipt">إيصال الدفع</Label>
-              <Input
-                type="file"
-                id="edit-receipt"
-                className="hidden"
-                onChange={handleUploadReceipt}
-              />
-              <Button variant="secondary" asChild>
-                <Label htmlFor="edit-receipt" className="flex items-center gap-2 cursor-pointer">
-                  <Upload className="h-4 w-4" />
-                  {newExpense.receipt_path ? "تغيير الإيصال" : "إرفاق إيصال"}
-                </Label>
-              </Button>
-              {newExpense.receipt_path && (
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-500">
-                    تم رفع الإيصال: {newExpense.receipt_path.split('/').pop()}
-                  </p>
-                  <Button 
-                    variant="link" 
-                    size="sm"
-                    onClick={() => handleDownloadReceipt(newExpense.receipt_path)}
-                  >
-                    <Download className="h-4 w-4 ml-2" />
-                    تحميل
-                  </Button>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex gap-3 pt-4">
-              <Button type="submit" className="medical-gradient flex-1">
-                حفظ التغييرات
-              </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsEditDialogOpen(false)}
-                className="flex-1"
-              >
-                إلغاء
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </main>
     </div>
   );
 };

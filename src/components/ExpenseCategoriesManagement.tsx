@@ -2,14 +2,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, Settings } from 'lucide-react';
+import { Plus, Edit, Settings } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 
 interface ExpenseCategory {
@@ -22,7 +22,11 @@ interface ExpenseCategory {
   created_at: string;
 }
 
-const ExpenseCategoriesManagement = () => {
+interface ExpenseCategoriesManagementProps {
+  onCategoriesUpdate?: () => void;
+}
+
+const ExpenseCategoriesManagement = ({ onCategoriesUpdate }: ExpenseCategoriesManagementProps) => {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -121,6 +125,7 @@ const ExpenseCategoriesManagement = () => {
       setIsDialogOpen(false);
       resetForm();
       fetchCategories();
+      onCategoriesUpdate?.(); // إشعار الصفحة الرئيسية بالتحديت
     } catch (error) {
       console.error('Error saving category:', error);
       toast({
@@ -157,6 +162,7 @@ const ExpenseCategoriesManagement = () => {
       });
       
       fetchCategories();
+      onCategoriesUpdate?.(); // إشعار الصفحة الرئيسية بالتحديث
     } catch (error) {
       console.error('Error toggling category status:', error);
       toast({
