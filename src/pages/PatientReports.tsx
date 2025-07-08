@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,6 +25,7 @@ import { ar } from "date-fns/locale";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import ServicesTable from "@/components/reports/ServicesTable";
 import InstallmentsTable from "@/components/reports/InstallmentsTable";
+import PaymentsTable from "@/components/reports/PaymentsTable";
 
 interface PatientReport {
   id: string;
@@ -65,6 +65,9 @@ interface DetailedService {
   total_price: number;
   service_notes: string | null;
   appointment_service_notes: string | null;
+  discount_percentage?: number;
+  discount_amount?: number;
+  final_total?: number;
 }
 
 interface DetailedInstallment {
@@ -74,10 +77,23 @@ interface DetailedInstallment {
   due_date: string;
   paid_date: string | null;
   is_paid: boolean;
-  installment_status: string;
+  installment_status: string; // Changed from union type to string
   days_overdue: number;
   appointment_date: string;
   total_payment_amount: number;
+}
+
+interface DetailedPayment {
+  payment_id: string;
+  appointment_id: string;
+  appointment_date: string;
+  payment_method: string;
+  payment_status: string;
+  total_amount: number;
+  paid_amount: number;
+  payment_date: string | null;
+  payment_notes: string | null;
+  appointment_notes: string | null;
 }
 
 const PatientReports = () => {
@@ -88,6 +104,7 @@ const PatientReports = () => {
   const [selectedPatient, setSelectedPatient] = useState<PatientReport | null>(null);
   const [detailedServices, setDetailedServices] = useState<DetailedService[]>([]);
   const [detailedInstallments, setDetailedInstallments] = useState<DetailedInstallment[]>([]);
+  const [detailedPayments, setDetailedPayments] = useState<DetailedPayment[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const navigate = useNavigate();
   const { settings, formatCurrency } = useSystemSettings();
@@ -159,6 +176,46 @@ const PatientReports = () => {
         console.error("Error fetching detailed installments:", installmentsError);
       } else {
         setDetailedInstallments(installmentsData || []);
+      }
+
+      // جلب المدفوعات التفصيلية
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("payments")
+        .select(`
+          id,
+          amount,
+          paid_amount,
+          payment_method,
+          payment_date,
+          status,
+          notes,
+          appointments!inner(
+            id,
+            scheduled_date,
+            notes,
+            total_cost
+          )
+        `)
+        .eq("patient_id", patientId)
+        .order("payment_date", { ascending: false });
+
+      if (paymentsError) {
+        console.error("Error fetching detailed payments:", paymentsError);
+      } else {
+        // تحويل البيانات إلى التنسيق المطلوب
+        const formattedPayments: DetailedPayment[] = (paymentsData || []).map(payment => ({
+          payment_id: payment.id,
+          appointment_id: payment.appointments.id,
+          appointment_date: payment.appointments.scheduled_date,
+          payment_method: payment.payment_method,
+          payment_status: payment.status,
+          total_amount: payment.appointments.total_cost || payment.amount,
+          paid_amount: payment.paid_amount,
+          payment_date: payment.payment_date,
+          payment_notes: payment.notes,
+          appointment_notes: payment.appointments.notes,
+        }));
+        setDetailedPayments(formattedPayments);
       }
     } catch (error) {
       console.error("Error fetching patient details:", error);
@@ -356,8 +413,8 @@ const PatientReports = () => {
             <p className="text-sm text-gray-500">تاريخ الطباعة: {formatDate(new Date().toISOString())}</p>
           </div>
 
+          {/* Personal Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            {/* Personal Information */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">المعلومات الشخصية</h2>
               <div className="space-y-2">
@@ -372,7 +429,6 @@ const PatientReports = () => {
               </div>
             </div>
 
-            {/* Medical History */}
             <div className="space-y-4">
               <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">التاريخ الطبي</h2>
               <div className="space-y-2">
@@ -390,14 +446,14 @@ const PatientReports = () => {
 
           {/* Treatment Plans */}
           {selectedPatient.treatment_plans && (
-            <div className="mb-8">
+            <div className="mb-8 print:break-inside-avoid">
               <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">الخطط العلاجية</h2>
               <p className="text-gray-700">{selectedPatient.treatment_plans}</p>
             </div>
           )}
 
           {/* Appointments Summary */}
-          <div className="mb-8">
+          <div className="mb-8 print:break-inside-avoid">
             <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">ملخص المواعيد</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-gray-50 rounded">
@@ -420,7 +476,7 @@ const PatientReports = () => {
           </div>
 
           {/* Financial Summary */}
-          <div className="mb-8">
+          <div className="mb-8 print:break-inside-avoid">
             <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">الملخص المالي</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-green-50 p-4 rounded-lg">
@@ -444,13 +500,16 @@ const PatientReports = () => {
             </div>
           </div>
 
+          {/* Page Break */}
+          <div className="print:break-before-page"></div>
+
           {/* Detailed Services */}
           {isLoadingDetails ? (
             <div className="mb-8 text-center py-8">
               <p>جاري تحميل التفاصيل...</p>
             </div>
           ) : (
-            <div className="mb-8">
+            <div className="mb-8 print:break-before-page">
               <ServicesTable 
                 services={detailedServices} 
                 patientName={selectedPatient.full_name}
@@ -459,42 +518,31 @@ const PatientReports = () => {
             </div>
           )}
 
-          {/* Detailed Installments */}
+          {/* Page Break */}
+          <div className="print:break-before-page"></div>
+
+          {/* Detailed Payments */}
           {!isLoadingDetails && (
-            <div className="mb-8">
-              <InstallmentsTable 
-                installments={detailedInstallments}
+            <div className="mb-8 print:break-before-page">
+              <PaymentsTable 
+                payments={detailedPayments}
                 patientName={selectedPatient.full_name}
                 isPrint={true}
               />
             </div>
           )}
 
-          {/* Installments Summary (Legacy) */}
-          {selectedPatient.total_installments > 0 && (
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">معلومات الأقساط</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-gray-50 rounded">
-                  <div className="text-2xl font-bold text-gray-800">{selectedPatient.total_installments}</div>
-                  <div className="text-sm text-gray-600">إجمالي الأقساط</div>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded">
-                  <div className="text-2xl font-bold text-orange-600">{selectedPatient.pending_installments}</div>
-                  <div className="text-sm text-gray-600">أقساط معلقة</div>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded">
-                  <div className="text-sm text-gray-600">القسط القادم</div>
-                  <div className="font-semibold">{formatDate(selectedPatient.next_installment_date)}</div>
-                </div>
-              </div>
-              {selectedPatient.pending_installments_amount > 0 && (
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
-                  <p className="text-orange-800">
-                    <strong>مبلغ الأقساط المعلقة:</strong> {formatCurrency(selectedPatient.pending_installments_amount)}
-                  </p>
-                </div>
-              )}
+          {/* Page Break */}
+          <div className="print:break-before-page"></div>
+
+          {/* Detailed Installments */}
+          {!isLoadingDetails && (
+            <div className="mb-8 print:break-before-page">
+              <InstallmentsTable 
+                installments={detailedInstallments}
+                patientName={selectedPatient.full_name}
+                isPrint={true}
+              />
             </div>
           )}
 
@@ -527,6 +575,9 @@ const PatientReports = () => {
           }
           .print\\:break-inside-avoid {
             break-inside: avoid;
+          }
+          .print\\:break-before-page {
+            break-before: page;
           }
           table {
             break-inside: avoid;

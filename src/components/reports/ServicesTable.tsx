@@ -19,6 +19,9 @@ interface DetailedService {
   total_price: number;
   service_notes: string | null;
   appointment_service_notes: string | null;
+  discount_percentage?: number;
+  discount_amount?: number;
+  final_total?: number;
 }
 
 interface ServicesTableProps {
@@ -52,6 +55,25 @@ const ServicesTable: React.FC<ServicesTableProps> = ({ services, patientName, is
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
+  const getCategoryBadge = (category: string) => {
+    // ألوان مختلفة للفئات
+    const categoryColors = {
+      'general': 'bg-blue-100 text-blue-800',
+      'dental': 'bg-green-100 text-green-800',
+      'surgery': 'bg-red-100 text-red-800',
+      'consultation': 'bg-purple-100 text-purple-800',
+      'treatment': 'bg-orange-100 text-orange-800',
+    };
+    
+    const colorClass = categoryColors[category as keyof typeof categoryColors] || 'bg-gray-100 text-gray-800';
+    
+    return (
+      <Badge className={colorClass}>
+        {category}
+      </Badge>
+    );
+  };
+
   if (services.length === 0) {
     return (
       <Card className={isPrint ? "print:shadow-none" : ""}>
@@ -64,6 +86,11 @@ const ServicesTable: React.FC<ServicesTableProps> = ({ services, patientName, is
       </Card>
     );
   }
+
+  // حساب الملخص المالي
+  const subtotal = services.reduce((sum, s) => sum + s.total_price, 0);
+  const totalDiscount = services.reduce((sum, s) => sum + (s.discount_amount || 0), 0);
+  const finalTotal = services.reduce((sum, s) => sum + (s.final_total || s.total_price), 0);
 
   return (
     <Card className={isPrint ? "print:shadow-none print:break-inside-avoid" : ""}>
@@ -103,9 +130,9 @@ const ServicesTable: React.FC<ServicesTableProps> = ({ services, patientName, is
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">{service.service_category}</Badge>
+                  {getCategoryBadge(service.service_category)}
                 </TableCell>
-                <TableCell>{service.quantity}</TableCell>
+                <TableCell className="text-center">{service.quantity}</TableCell>
                 <TableCell>{formatCurrency(service.unit_price)}</TableCell>
                 <TableCell className="font-semibold">{formatCurrency(service.total_price)}</TableCell>
                 <TableCell>{getStatusBadge(service.appointment_status)}</TableCell>
@@ -122,19 +149,49 @@ const ServicesTable: React.FC<ServicesTableProps> = ({ services, patientName, is
           </TableBody>
         </Table>
         
-        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+        {/* الملخص المالي المفصل */}
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg space-y-4">
+          <h4 className="font-medium text-lg">الملخص المالي للخدمات</h4>
+          
+          {/* الملخص الأساسي */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="text-center p-3 bg-blue-50 rounded">
+              <div className="text-lg font-bold text-blue-600">{formatCurrency(subtotal)}</div>
+              <div className="text-sm text-blue-800">المجموع الفرعي</div>
+            </div>
+            {totalDiscount > 0 && (
+              <div className="text-center p-3 bg-yellow-50 rounded">
+                <div className="text-lg font-bold text-yellow-600">-{formatCurrency(totalDiscount)}</div>
+                <div className="text-sm text-yellow-800">إجمالي الخصومات</div>
+              </div>
+            )}
+            <div className="text-center p-3 bg-green-50 rounded">
+              <div className="text-lg font-bold text-green-600">{formatCurrency(finalTotal)}</div>
+              <div className="text-sm text-green-800">المبلغ النهائي</div>
+            </div>
+            <div className="text-center p-3 bg-white rounded border">
+              <div className="text-lg font-bold text-gray-800">{services.length}</div>
+              <div className="text-sm text-gray-600">إجمالي الخدمات</div>
+            </div>
+          </div>
+
+          {/* إحصائيات الخدمات */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <strong>إجمالي الخدمات:</strong> {services.length}
+            <div className="text-center p-3 bg-white rounded border">
+              <div className="text-xl font-bold text-green-600">{services.filter(s => s.appointment_status === 'completed').length}</div>
+              <div className="text-gray-600">خدمات مكتملة</div>
             </div>
-            <div>
-              <strong>إجمالي التكلفة:</strong> {formatCurrency(services.reduce((sum, s) => sum + s.total_price, 0))}
+            <div className="text-center p-3 bg-white rounded border">
+              <div className="text-xl font-bold text-orange-600">{services.filter(s => s.appointment_status === 'scheduled').length}</div>
+              <div className="text-gray-600">خدمات مجدولة</div>
             </div>
-            <div>
-              <strong>الخدمات المكتملة:</strong> {services.filter(s => s.appointment_status === 'completed').length}
+            <div className="text-center p-3 bg-white rounded border">
+              <div className="text-xl font-bold text-blue-600">{services.filter(s => s.appointment_status === 'in_progress').length}</div>
+              <div className="text-gray-600">خدمات جارية</div>
             </div>
-            <div>
-              <strong>الخدمات المجدولة:</strong> {services.filter(s => s.appointment_status === 'scheduled').length}
+            <div className="text-center p-3 bg-white rounded border">
+              <div className="text-xl font-bold text-red-600">{services.filter(s => s.appointment_status === 'cancelled').length}</div>
+              <div className="text-gray-600">خدمات ملغية</div>
             </div>
           </div>
         </div>

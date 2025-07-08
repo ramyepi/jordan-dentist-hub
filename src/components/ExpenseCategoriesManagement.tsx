@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Edit, Settings } from 'lucide-react';
+import { Plus, Edit, Settings, Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 
 interface ExpenseCategory {
@@ -147,6 +147,50 @@ const ExpenseCategoriesManagement = ({ onCategoriesUpdate }: ExpenseCategoriesMa
     setIsDialogOpen(true);
   };
 
+  const handleDelete = async (category: ExpenseCategory) => {
+    try {
+      // التحقق من وجود مصاريف مرتبطة بهذه الفئة
+      const { data: relatedExpenses, error: checkError } = await supabase
+        .from('clinic_expenses')
+        .select('id')
+        .eq('category_id', category.id)
+        .limit(1);
+
+      if (checkError) throw checkError;
+
+      if (relatedExpenses && relatedExpenses.length > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'لا يمكن حذف الفئة',
+          description: 'هناك مصاريف مرتبطة بهذه الفئة. يجب حذف المصاريف أولاً أو تغيير فئتها.',
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('expense_categories')
+        .delete()
+        .eq('id', category.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'تم الحذف',
+        description: 'تم حذف الفئة بنجاح',
+      });
+
+      fetchCategories();
+      onCategoriesUpdate?.();
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      toast({
+        variant: 'destructive',
+        title: 'خطأ',
+        description: 'حدث خطأ في حذف الفئة',
+      });
+    }
+  };
+
   const handleToggleActive = async (category: ExpenseCategory) => {
     try {
       const { error } = await supabase
@@ -242,6 +286,35 @@ const ExpenseCategoriesManagement = ({ onCategoriesUpdate }: ExpenseCategoriesMa
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        هل أنت متأكد من حذف فئة "{category.name}"؟ 
+                        هذا الإجراء لا يمكن التراجع عنه.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDelete(category)}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        حذف
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </CardContent>
           </Card>
