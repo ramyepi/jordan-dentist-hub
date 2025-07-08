@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import {
   DollarSign,
   Clock
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigateand } from "react-router-dom";
 
 interface Payment {
   id: string;
@@ -37,6 +38,7 @@ interface Payment {
   appointments: {
     scheduled_date: string;
     scheduled_time: string;
+    total_cost: number;
   };
 }
 
@@ -50,6 +52,7 @@ interface Appointment {
   id: string;
   scheduled_date: string;
   scheduled_time: string;
+  total_cost: number;
   patients: {
     full_name: string;
   };
@@ -87,7 +90,7 @@ const Payments = () => {
         .select(`
           *,
           patients(full_name, phone),
-          appointments(scheduled_date, scheduled_time)
+          appointments(scheduled_date, scheduled_time, total_cost)
         `)
         .order("created_at", { ascending: false });
 
@@ -132,6 +135,7 @@ const Payments = () => {
           id,
           scheduled_date,
           scheduled_time,
+          total_cost,
           patients(full_name)
         `)
         .order("scheduled_date", { ascending: false });
@@ -240,13 +244,14 @@ const Payments = () => {
     return time.slice(0, 5);
   };
 
-  // Calculate totals
+  // Calculate totals with corrected logic
   const totalRevenue = payments.reduce((sum, payment) => sum + payment.paid_amount, 0);
+  
+  // Calculate pending amount correctly - this should be the difference between appointment total and paid amount for each payment
   const pendingAmount = payments.reduce((sum, payment) => {
-    if (payment.status === 'pending' || payment.status === 'partial') {
-      return sum + (payment.amount - payment.paid_amount);
-    }
-    return sum;
+    const appointmentTotal = payment.appointments?.total_cost || payment.amount;
+    const remainingForThisPayment = appointmentTotal - payment.paid_amount;
+    return sum + (remainingForThisPayment > 0 ? remainingForThisPayment : 0);
   }, 0);
 
   if (isLoading) {
@@ -495,68 +500,76 @@ const Payments = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {payments.map((payment) => (
-                  <div 
-                    key={payment.id} 
-                    className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <Badge className={getStatusColor(payment.status)} variant="secondary">
-                          {getStatusInArabic(payment.status)}
-                        </Badge>
-                        <Badge variant="outline">
-                          {getMethodInArabic(payment.payment_method)}
-                        </Badge>
+                {payments.map((payment) => {
+                  const appointmentTotal = payment.appointments?.total_cost || payment.amount;
+                  const remainingAmount = appointmentTotal - payment.paid_amount;
+                  
+                  return (
+                    <div 
+                      key={payment.id} 
+                      className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <Badge className={getStatusColor(payment.status)} variant="secondary">
+                            {getStatusInArabic(payment.status)}
+                          </Badge>
+                          <Badge variant="outline">
+                            {getMethodInArabic(payment.payment_method)}
+                          </Badge>
+                        </div>
+                        <div className="text-left">
+                          <p className="font-bold text-lg text-green-600">{payment.paid_amount.toFixed(2)} د.أ</p>
+                          <p className="text-sm text-gray-500">من أصل {appointmentTotal.toFixed(2)} د.أ</p>
+                          {remainingAmount > 0 && (
+                            <p className="text-sm text-red-500 font-medium">
+                              متبقي: {remainingAmount.toFixed(2)} د.أ
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-left">
-                        <p className="font-bold text-lg">{payment.paid_amount.toFixed(2)} د.أ</p>
-                        {payment.amount !== payment.paid_amount && (
-                          <p className="text-sm text-gray-500">من أصل {payment.amount.toFixed(2)} د.أ</p>
-                        )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            المريض: {payment.patients.full_name}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {payment.patients.phone}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            الموعد: {formatDate(payment.appointments.scheduled_date)}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {formatTime(payment.appointments.scheduled_time)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          المريض: {payment.patients.full_name}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {payment.patients.phone}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          الموعد: {formatDate(payment.appointments.scheduled_date)}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {formatTime(payment.appointments.scheduled_time)}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Calendar className="h-4 w-4" />
-                        <span>
-                          {payment.payment_date ? formatDate(payment.payment_date) : 'غير محدد'}
-                        </span>
+                      <div className="mt-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="h-4 w-4" />
+                          <span>
+                            {payment.payment_date ? formatDate(payment.payment_date) : 'غير محدد'}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          مسجل في: {formatDate(payment.created_at)}
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500">
-                        مسجل في: {formatDate(payment.created_at)}
-                      </div>
+                      
+                      {payment.notes && (
+                        <div className="mt-3 p-2 bg-gray-50 rounded">
+                          <p className="text-sm text-gray-700">
+                            <strong>ملاحظات:</strong> {payment.notes}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                    
-                    {payment.notes && (
-                      <div className="mt-3 p-2 bg-gray-50 rounded">
-                        <p className="text-sm text-gray-700">
-                          <strong>ملاحظات:</strong> {payment.notes}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

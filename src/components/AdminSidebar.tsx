@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,11 +20,13 @@ import {
   Receipt
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 
 const AdminSidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { settings } = useSystemSettings();
 
   const menuItems = [
     {
@@ -169,8 +170,8 @@ const AdminSidebar = () => {
         <div className="p-4 border-t border-gray-200">
           <div className="text-center text-xs text-gray-500">
             <Building className="h-4 w-4 mx-auto mb-1" />
-            <p>عيادة الأسنان الذكية</p>
-            <p>نظام إدارة متكامل</p>
+            <p>{settings.clinic_name}</p>
+            <p>{settings.clinic_description}</p>
           </div>
         </div>
       )}

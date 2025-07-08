@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
+import CreateStaffDialog from "@/components/CreateStaffDialog";
 import { 
   Users, 
   Search, 
@@ -22,7 +22,8 @@ import {
   Trash2,
   Calendar,
   Phone,
-  DollarSign
+  DollarSign,
+  Plus
 } from "lucide-react";
 
 interface StaffMember {
@@ -48,6 +49,7 @@ const StaffManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
 
@@ -145,7 +147,7 @@ const StaffManagement = () => {
       toast({
         variant: "destructive",
         title: "خطأ",
-        description: "لا يمكن إضافة موظفين جدد من هذه الواجهة. يجب إنشاء حساب مستخدم أولاً.",
+        description: "لا يمكن إضافة موظفين جدد من هذه الواجهة. استخدم زر إضافة موظف جديد.",
       });
       return;
     }
@@ -340,9 +342,13 @@ const StaffManagement = () => {
               </div>
             </div>
             
-            <div className="text-sm text-gray-600">
-              ملاحظة: يمكن تعديل بيانات الموظفين الحاليين فقط. لإضافة موظف جديد، يجب إنشاء حساب مستخدم أولاً.
-            </div>
+            <Button 
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="medical-gradient gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              إضافة موظف جديد
+            </Button>
           </div>
         </div>
       </header>
@@ -601,6 +607,13 @@ const StaffManagement = () => {
           </div>
         )}
       </main>
+
+      {/* Create Staff Dialog */}
+      <CreateStaffDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        onStaffCreated={fetchStaff}
+      />
     </div>
   );
 };

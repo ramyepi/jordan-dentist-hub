@@ -13,6 +13,7 @@ interface SystemSettings {
   currency_symbol: string;
   calendar_type: string;
   clinic_name: string;
+  clinic_description?: string;
 }
 
 interface SystemSettingsContextType {
@@ -31,7 +32,8 @@ const defaultSettings: SystemSettings = {
   currency: 'JOD',
   currency_symbol: 'د.أ',
   calendar_type: 'gregorian',
-  clinic_name: 'عيادة الأسنان الذكية'
+  clinic_name: 'عيادة الأسنان الذكية',
+  clinic_description: 'نظام إدارة متكامل'
 };
 
 const SystemSettingsContext = createContext<SystemSettingsContextType | undefined>(undefined);
@@ -77,7 +79,8 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
           currency: data.currency || defaultSettings.currency,
           currency_symbol: data.currency_symbol || defaultSettings.currency_symbol,
           calendar_type: data.calendar_type || defaultSettings.calendar_type,
-          clinic_name: data.clinic_name || defaultSettings.clinic_name
+          clinic_name: data.clinic_name || defaultSettings.clinic_name,
+          clinic_description: data.clinic_description || defaultSettings.clinic_description
         });
       }
     } catch (error) {
@@ -108,6 +111,7 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
         currency_symbol: updatedSettings.currency_symbol,
         calendar_type: updatedSettings.calendar_type,
         clinic_name: updatedSettings.clinic_name,
+        clinic_description: updatedSettings.clinic_description,
         created_by: profile.id
       };
 
@@ -146,7 +150,6 @@ export const SystemSettingsProvider: React.FC<SystemSettingsProviderProps> = ({ 
   const formatDateTime = (date: Date, includeTime = true) => {
     const timeZone = settings.timezone;
     
-    // استخدام التقويم الميلادي دائماً مع اللغة الإنجليزية للتواريخ
     const locale = settings.calendar_type === 'gregorian' ? 'en-GB' : 'ar-SA-u-ca-islamic';
     
     const dateOptions: Intl.DateTimeFormatOptions = {
