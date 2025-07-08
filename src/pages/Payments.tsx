@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,7 @@ import {
   DollarSign,
   Clock
 } from "lucide-react";
-import { useNavigateand } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 interface Payment {
   id: string;
@@ -247,11 +246,11 @@ const Payments = () => {
   // Calculate totals with corrected logic
   const totalRevenue = payments.reduce((sum, payment) => sum + payment.paid_amount, 0);
   
-  // Calculate pending amount correctly - this should be the difference between appointment total and paid amount for each payment
+  // Calculate pending amount correctly - sum all unpaid amounts from appointments
   const pendingAmount = payments.reduce((sum, payment) => {
     const appointmentTotal = payment.appointments?.total_cost || payment.amount;
-    const remainingForThisPayment = appointmentTotal - payment.paid_amount;
-    return sum + (remainingForThisPayment > 0 ? remainingForThisPayment : 0);
+    const remainingForThisPayment = Math.max(0, appointmentTotal - payment.paid_amount);
+    return sum + remainingForThisPayment;
   }, 0);
 
   if (isLoading) {
@@ -502,7 +501,7 @@ const Payments = () => {
               <div className="space-y-4">
                 {payments.map((payment) => {
                   const appointmentTotal = payment.appointments?.total_cost || payment.amount;
-                  const remainingAmount = appointmentTotal - payment.paid_amount;
+                  const remainingAmount = Math.max(0, appointmentTotal - payment.paid_amount);
                   
                   return (
                     <div 
@@ -519,12 +518,19 @@ const Payments = () => {
                           </Badge>
                         </div>
                         <div className="text-left">
-                          <p className="font-bold text-lg text-green-600">{payment.paid_amount.toFixed(2)} د.أ</p>
-                          <p className="text-sm text-gray-500">من أصل {appointmentTotal.toFixed(2)} د.أ</p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm text-gray-500">المبلغ الإجمالي:</span>
+                            <span className="font-medium text-gray-900">{appointmentTotal.toFixed(2)} د.أ</span>
+                          </div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm text-gray-500">المبلغ المدفوع:</span>
+                            <span className="font-bold text-green-600">{payment.paid_amount.toFixed(2)} د.أ</span>
+                          </div>
                           {remainingAmount > 0 && (
-                            <p className="text-sm text-red-500 font-medium">
-                              متبقي: {remainingAmount.toFixed(2)} د.أ
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-gray-500">المبلغ المتبقي:</span>
+                              <span className="font-medium text-red-600">{remainingAmount.toFixed(2)} د.أ</span>
+                            </div>
                           )}
                         </div>
                       </div>
