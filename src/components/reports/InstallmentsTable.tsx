@@ -36,6 +36,15 @@ const InstallmentsTable: React.FC<InstallmentsTableProps> = ({ installments, pat
     }
   };
 
+  const formatDay = (dateString: string | null) => {
+    if (!dateString) return "غير محدد";
+    try {
+      return format(new Date(dateString), "EEEE", { locale: ar });
+    } catch {
+      return "غير صحيح";
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return `${amount.toFixed(2)} د.أ`;
   };
@@ -115,9 +124,9 @@ const InstallmentsTable: React.FC<InstallmentsTableProps> = ({ installments, pat
               <TableHead className="text-right">رقم القسط</TableHead>
               <TableHead className="text-right">المبلغ</TableHead>
               <TableHead className="text-right">تاريخ الاستحقاق</TableHead>
+              <TableHead className="text-right">اليوم</TableHead>
               <TableHead className="text-right">تاريخ الدفع</TableHead>
               <TableHead className="text-right">الحالة</TableHead>
-              <TableHead className="text-right">تاريخ الموعد</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -147,14 +156,14 @@ const InstallmentsTable: React.FC<InstallmentsTableProps> = ({ installments, pat
                     {formatDate(installment.due_date)}
                   </div>
                 </TableCell>
+                <TableCell className="text-gray-600">
+                  {formatDay(installment.due_date)}
+                </TableCell>
                 <TableCell>
                   {installment.paid_date ? formatDate(installment.paid_date) : "-"}
                 </TableCell>
                 <TableCell>
                   {getStatusBadge(installment)}
-                </TableCell>
-                <TableCell className="text-sm text-gray-600">
-                  {formatDate(installment.appointment_date)}
                 </TableCell>
               </TableRow>
             ))}

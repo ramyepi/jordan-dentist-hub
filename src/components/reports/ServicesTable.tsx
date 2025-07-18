@@ -104,10 +104,11 @@ const ServicesTable: React.FC<ServicesTableProps> = ({ services, patientName, is
             <TableRow>
               <TableHead className="text-right">التاريخ</TableHead>
               <TableHead className="text-right">الخدمة</TableHead>
-              <TableHead className="text-right">الفئة</TableHead>
               <TableHead className="text-right">الكمية</TableHead>
               <TableHead className="text-right">السعر</TableHead>
               <TableHead className="text-right">الإجمالي</TableHead>
+              <TableHead className="text-right">الخصم %</TableHead>
+              <TableHead className="text-right">بعد الخصم</TableHead>
               <TableHead className="text-right">الحالة</TableHead>
               {!isPrint && <TableHead className="text-right">ملاحظات</TableHead>}
             </TableRow>
@@ -129,12 +130,19 @@ const ServicesTable: React.FC<ServicesTableProps> = ({ services, patientName, is
                     )}
                   </div>
                 </TableCell>
-                <TableCell>
-                  {getCategoryBadge(service.service_category)}
-                </TableCell>
                 <TableCell className="text-center">{service.quantity}</TableCell>
                 <TableCell>{formatCurrency(service.unit_price)}</TableCell>
                 <TableCell className="font-semibold">{formatCurrency(service.total_price)}</TableCell>
+                <TableCell className="text-center">
+                  {service.discount_percentage ? (
+                    <span className="text-orange-600 font-medium">{service.discount_percentage}%</span>
+                  ) : (
+                    <span className="text-gray-400">-</span>
+                  )}
+                </TableCell>
+                <TableCell className="font-semibold text-green-600">
+                  {formatCurrency(service.final_total || service.total_price)}
+                </TableCell>
                 <TableCell>{getStatusBadge(service.appointment_status)}</TableCell>
                 {!isPrint && (
                   <TableCell>

@@ -36,6 +36,15 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({ payments, patientName, is
     }
   };
 
+  const formatDay = (dateString: string | null) => {
+    if (!dateString) return "غير محدد";
+    try {
+      return format(new Date(dateString), "EEEE", { locale: ar });
+    } catch {
+      return "غير صحيح";
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return `${amount.toFixed(2)} د.أ`;
   };
@@ -104,8 +113,8 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({ payments, patientName, is
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-right">تاريخ الموعد</TableHead>
               <TableHead className="text-right">تاريخ الدفع</TableHead>
+              <TableHead className="text-right">اليوم</TableHead>
               <TableHead className="text-right">طريقة الدفع</TableHead>
               <TableHead className="text-right">المبلغ الإجمالي</TableHead>
               <TableHead className="text-right">المبلغ المدفوع</TableHead>
@@ -115,14 +124,14 @@ const PaymentsTable: React.FC<PaymentsTableProps> = ({ payments, patientName, is
           </TableHeader>
           <TableBody>
             {payments
-              .sort((a, b) => new Date(b.appointment_date).getTime() - new Date(a.appointment_date).getTime())
+              .sort((a, b) => new Date(b.payment_date || b.appointment_date).getTime() - new Date(a.payment_date || a.appointment_date).getTime())
               .map((payment) => (
               <TableRow key={payment.payment_id}>
                 <TableCell className="font-medium">
-                  {formatDate(payment.appointment_date)}
+                  {payment.payment_date ? formatDate(payment.payment_date) : formatDate(payment.appointment_date)}
                 </TableCell>
-                <TableCell>
-                  {payment.payment_date ? formatDate(payment.payment_date) : "-"}
+                <TableCell className="text-gray-600">
+                  {payment.payment_date ? formatDay(payment.payment_date) : formatDay(payment.appointment_date)}
                 </TableCell>
                 <TableCell>
                   {getPaymentMethodBadge(payment.payment_method)}

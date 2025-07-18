@@ -521,6 +521,47 @@ const PatientReports = () => {
           {/* Page Break */}
           <div className="print:break-before-page"></div>
 
+          {/* Financial Summary for Services */}
+          {!isLoadingDetails && (
+            <div className="mb-8 print:break-before-page">
+              <div className="bg-white p-6 rounded-lg border">
+                <h2 className="text-xl font-semibold text-gray-900 border-b pb-2 mb-4">الملخص المالي للخدمات</h2>
+                
+                {(() => {
+                  const subtotal = detailedServices.reduce((sum, s) => sum + s.total_price, 0);
+                  const totalDiscount = detailedServices.reduce((sum, s) => sum + (s.discount_amount || 0), 0);
+                  const discountPercentage = subtotal > 0 ? ((totalDiscount / subtotal) * 100).toFixed(1) : 0;
+                  const finalTotal = detailedServices.reduce((sum, s) => sum + (s.final_total || s.total_price), 0);
+                  
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                      <div className="text-center p-4 bg-blue-50 rounded-lg">
+                        <div className="text-2xl font-bold text-blue-600">{formatCurrency(subtotal)}</div>
+                        <div className="text-sm text-blue-800">إجمالي التكلفة العلاجية</div>
+                      </div>
+                      <div className="text-center p-4 bg-orange-50 rounded-lg">
+                        <div className="text-2xl font-bold text-orange-600">{discountPercentage}%</div>
+                        <div className="text-sm text-orange-800">مقدار الخصم</div>
+                        <div className="text-xs text-orange-600 mt-1">{formatCurrency(totalDiscount)}</div>
+                      </div>
+                      <div className="text-center p-4 bg-green-50 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{formatCurrency(finalTotal)}</div>
+                        <div className="text-sm text-green-800">المبلغ بعد الخصم</div>
+                      </div>
+                      <div className="text-center p-4 bg-gray-50 rounded-lg">
+                        <div className="text-2xl font-bold text-gray-600">{detailedServices.length}</div>
+                        <div className="text-sm text-gray-600">إجمالي الخدمات</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Page Break */}
+          <div className="print:break-before-page"></div>
+
           {/* Detailed Payments */}
           {!isLoadingDetails && (
             <div className="mb-8 print:break-before-page">
